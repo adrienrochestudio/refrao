@@ -70,21 +70,119 @@ class FirebaseStore{
   async saveProgress(p){ await this.f.setDoc(this.f.doc(this.db,"progress","main"), p); }
 }
 
+/* ---- app Firebase partagée (store + auth) ---- */
+let _appP;
+function fbApp(){
+  if(_appP) return _appP;
+  _appP=(async()=>{
+    const m=await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
+    return m.initializeApp(R.FIREBASE_CONFIG);
+  })();
+  return _appP;
+}
+
 let _storeP;
 R.getStore = function(){
   if(_storeP) return _storeP;
   _storeP = (async()=>{
     if(R.USE_FIREBASE){
       try{
-        const appMod = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
-        const fs     = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-        const app = appMod.initializeApp(R.FIREBASE_CONFIG);
+        const fs  = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+        const app = await fbApp();
         return new FirebaseStore(fs.getFirestore(app), fs);
       }catch(e){ console.error(e); R.toast("Firebase indisponible — stockage local"); return new LocalStore(); }
     }
     return new LocalStore();
   })();
   return _storeP;
+};
+
+/* ---- AUTHENTIFICATION (Firebase Auth) -------------------------- */
+R.AUTH_ENABLED = R.USE_FIREBASE;
+let _authP, _user=null, _userCbs=[];
+function fbAuth(){
+  if(_authP) return _authP;
+  _authP=(async()=>{
+    const m=await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
+    const app=await fbApp();
+    const auth=m.getAuth(app);
+    m.onAuthStateChanged(auth, u=>{ _user=u; _userCbs.forEach(cb=>{try{cb(u);}catch(e){}}); });
+    return {auth, m};
+  })();
+  return _authP;
+}
+R.onAuth = function(cb){ _userCbs.push(cb); cb(_user); if(R.AUTH_ENABLED) fbAuth(); };
+R.user   = ()=>_user;
+R.login  = async function(email,pw){ const {auth,m}=await fbAuth(); await m.signInWithEmailAndPassword(auth,email,pw); };
+R.logout = async function(){ const {auth,m}=await fbAuth(); await m.signOut(auth); };
+
+function injectLoginModal(){
+  if(document.getElementById("loginBg")) return;
+  const d=document.createElement("div");
+  d.innerHTML=`
+  <div class="modal-bg" id="loginBg">
+    <div class="modal" style="max-width:380px">
+      <h3>Connexion</h3>
+      <div class="lead">Accès au back office.</div>
+      <div class="field"><label>Email</label><input id="loginEmail" type="email" autocomplete="username"></div>
+      <div class="field"><label>Mot de passe</label><input id="loginPw" type="password" autocomplete="current-password"></div>
+      <div id="loginErr" style="color:var(--red);font-size:.82rem;min-height:18px;margin-bottom:4px"></div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" id="loginCancel">Annuler</button>
+        <button class="btn btn-primary" id="loginGo">Se connecter</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(d.firstElementChild);
+  const close=()=>document.getElementById("loginBg").classList.remove("open");
+  document.getElementById("loginCancel").onclick=close;
+  const go=async()=>{
+    const e=document.getElementById("loginEmail").value.trim();
+    const p=document.getElementById("loginPw").value;
+    const err=document.getElementById("loginErr"); err.textContent="";
+    try{ await R.login(e,p); close(); document.getElementById("loginPw").value=""; }
+    catch(ex){ err.textContent="Identifiants incorrects."; }
+  };
+  document.getElementById("loginGo").onclick=go;
+  document.getElementById("loginPw").addEventListener("keydown",ev=>{ if(ev.key==="Enter")go(); });
+}
+R.openLogin = function(){ injectLoginModal(); document.getElementById("loginBg").classList.add("open"); setTimeout(()=>document.getElementById("loginEmail").focus(),50); };
+
+/* bouton de connexion dans la barre (slot #authSlot) */
+R.mountAuthButton = function(isAdmin){
+  const slot=document.getElementById("authSlot"); if(!slot) return;
+  injectLoginModal();
+  const render=(u)=>{
+    if(u){
+      slot.innerHTML = isAdmin
+        ? `<button class="btn btn-sm btn-ghost" id="logoutBtn">Déconnexion</button>`
+        : `<a class="btn btn-sm" href="admin.html">Back office</a><button class="btn btn-sm btn-ghost" id="logoutBtn">Déconnexion</button>`;
+      const lo=slot.querySelector("#logoutBtn"); if(lo) lo.onclick=()=>R.logout();
+    }else{
+      if(!R.AUTH_ENABLED && !isAdmin){ slot.innerHTML=`<a class="btn btn-sm" href="admin.html">Back office</a>`; return; }
+      slot.innerHTML = isAdmin ? "" : `<button class="btn btn-sm" id="loginBtn">Connexion</button>`;
+      const li=slot.querySelector("#loginBtn"); if(li) li.onclick=R.openLogin;
+    }
+  };
+  R.onAuth(render);
+};
+
+/* protège la page admin : n'appelle onAllowed() qu'une fois connecté */
+R.guardAdmin = function(onAllowed){
+  if(!R.AUTH_ENABLED){ onAllowed(); return; }   // mode local : pas de barrière
+  injectLoginModal();
+  let started=false;
+  R.onAuth(u=>{
+    const lock=document.getElementById("adminLock"), content=document.getElementById("adminContent");
+    if(u){
+      if(lock) lock.style.display="none";
+      if(content) content.style.display="";
+      if(!started){ started=true; onAllowed(); }
+    }else{
+      if(content) content.style.display="none";
+      if(lock) lock.style.display="flex";
+    }
+  });
 };
 
 /* ---- 5. MOTEUR DE NIVEAUX -------------------------------------- */
