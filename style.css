@@ -78,7 +78,7 @@ a{color:inherit;text-decoration:none}
 .brand .dot, .live-dot{
   width:13px;height:13px;border-radius:50%;background:var(--blue);
   box-shadow:0 0 0 4px rgba(128,183,255,.12), 0 0 18px var(--blue-glow);
-  animation:dotpop 1.9s var(--ease) infinite;
+  animation:dotpop 3.4s var(--ease) infinite;
 }
 .live-dot{width:11px;height:11px;display:inline-block;vertical-align:middle;margin-right:11px}
 @keyframes dotpop{
@@ -392,6 +392,12 @@ a{color:inherit;text-decoration:none}
 .cohort-table th{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-mute);font-weight:600}
 .cohort-table tr:last-child td{border-bottom:none}
 .cohort-table .v{color:var(--blue-soft);font-family:var(--font-mono)}
+
+/* ----- cases de sélection de langue ----- */
+.lang-pick{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:26px}
+.lang-chip{padding:11px 20px;border-radius:12px;background:var(--surface);border:1px solid var(--border-2);font-weight:700;font-size:.92rem;color:var(--text-dim);transition:transform .2s var(--ease), background .2s, color .2s, box-shadow .25s}
+.lang-chip:hover{transform:translateY(-2px);color:var(--text);border-color:var(--c)}
+.lang-chip.on{color:#0a0a0c;background:var(--c);border-color:var(--c);box-shadow:0 10px 26px -12px var(--c)}
 
 /* ----- écran de verrouillage back office ----- */
 .admin-lock{display:flex;align-items:center;justify-content:center;min-height:60vh}
