@@ -32,8 +32,9 @@
         <button class="btn btn-primary" id="liGo" style="width:100%;justify-content:center">Se connecter</button>
       </div>
 
-      <!-- SIGNUP -->
+      <!-- SIGNUP / COMPLETION -->
       <div id="paneSignup" class="hidden">
+        <div class="lead hidden" id="completeHead" style="margin-bottom:18px">Bienvenue ! Termine la configuration de ton compte.</div>
         <div class="field">
           <label>Je suis</label>
           <div class="seg">
@@ -41,8 +42,8 @@
             <button class="seg-opt" data-role="manager">Gestionnaire de cohorte</button>
           </div>
         </div>
-        <div class="field"><label>Email</label><input id="suEmail" type="email" autocomplete="username"></div>
-        <div class="field"><label>Mot de passe</label><input id="suPw" type="password" autocomplete="new-password" placeholder="6 caractères minimum"></div>
+        <div class="field" id="fEmail"><label>Email</label><input id="suEmail" type="email" autocomplete="username"></div>
+        <div class="field" id="fPw"><label>Mot de passe</label><input id="suPw" type="password" autocomplete="new-password" placeholder="6 caractères minimum"></div>
 
         <div class="field" id="fLang">
           <label>Langue à apprendre</label>
@@ -71,9 +72,13 @@
 <script src="core.js"></script>
 <script>
 const $=s=>document.querySelector(s);
+let completing=false;
 
-// déjà connecté -> rediriger
-R.onAuthProfile((u,p)=>{ if(u&&p){ location.href = p.role==="manager"?"gestion.html":"apprendre.html"; } });
+// redirection / complétion selon l'état
+R.onAuthProfile((u,p)=>{
+  if(u && p){ location.href = p.role==="manager"?"gestion.html":"apprendre.html"; return; }
+  if(u && !p){ showComplete(); }   // compte existant sans profil -> compléter
+});
 
 // langues
 $("#suLang").innerHTML = R.LANGS.map(l=>`<option value="${l.code}">${l.label}</option>`).join("");
@@ -87,6 +92,18 @@ function show(login){
 }
 $("#tabLogin").onclick=()=>show(true);
 $("#tabSignup").onclick=()=>show(false);
+
+// passe en mode "compléter mon compte" (déjà connecté, pas de profil)
+function showComplete(){
+  completing=true;
+  document.querySelector(".tabs").classList.add("hidden");
+  $("#paneLogin").classList.add("hidden");
+  $("#paneSignup").classList.remove("hidden");
+  $("#completeHead").classList.remove("hidden");
+  $("#fEmail").classList.add("hidden");
+  $("#fPw").classList.add("hidden");
+  $("#suGo").textContent="Terminer mon compte";
+}
 
 // rôle
 let role="learner";
@@ -109,16 +126,21 @@ $("#liGo").onclick=async()=>{
 };
 $("#liPw").addEventListener("keydown",e=>{ if(e.key==="Enter")$("#liGo").click(); });
 
-// signup
+// signup OU completion
 $("#suGo").onclick=async()=>{
   $("#suErr").textContent="";
-  const email=$("#suEmail").value.trim(), pw=$("#suPw").value, lang=$("#suLang").value;
-  if(!email||pw.length<6){ $("#suErr").textContent="Email valide et mot de passe de 6 caractères minimum."; return; }
+  const lang=$("#suLang").value;
+  const opts={role, lang};
+  opts.cohortCode = role==="manager" ? $("#suCohort").value : $("#suJoin").value;
   try{
-    const opts={email, pw, role, lang};
-    if(role==="manager") opts.cohortCode=$("#suCohort").value;
-    else opts.cohortCode=$("#suJoin").value;
-    const res=await R.signup(opts);
+    let res;
+    if(completing){
+      res=await R.completeProfile(opts);
+    }else{
+      const email=$("#suEmail").value.trim(), pw=$("#suPw").value;
+      if(!email||pw.length<6){ $("#suErr").textContent="Email valide et mot de passe de 6 caractères minimum."; return; }
+      res=await R.signup({...opts, email, pw});
+    }
     location.href = res.role==="manager"?"gestion.html":"apprendre.html";
   }catch(e){
     let m=e.message||"Erreur";
