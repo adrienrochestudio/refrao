@@ -11,12 +11,12 @@ const R = {};
    du navigateur. Dès que tu mets ta vraie clé, elle passe sur Firestore.
 ----------------------------------------------------------------- */
 R.FIREBASE_CONFIG = {
-  apiKey:            "COLLE_TA_CLE_ICI",
-  authDomain:        "ton-projet.firebaseapp.com",
-  projectId:         "ton-projet",
-  storageBucket:     "ton-projet.appspot.com",
-  messagingSenderId: "000000000000",
-  appId:             "1:000:web:xxxxxxxx"
+  apiKey:            "AIzaSyAM6s43G5e55LduqW9KYcEXgJDsh6pGUQs",
+  authDomain:        "refrao-b6ae3.firebaseapp.com",
+  projectId:         "refrao-b6ae3",
+  storageBucket:     "refrao-b6ae3.firebasestorage.app",
+  messagingSenderId: "39410882551",
+  appId:             "1:39410882551:web:a5bea039d593d230b8c0f2"
 };
 R.USE_FIREBASE = !R.FIREBASE_CONFIG.apiKey.includes("COLLE");
 
