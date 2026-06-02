@@ -17,17 +17,28 @@
   <nav class="nav">
     <a href="index.html">Voir le site</a>
   </nav>
+  <div id="authSlot" style="display:flex;gap:8px;align-items:center"></div>
 </header>
 
 <main class="shell">
-  <div class="section-head">
-    <div><h2>Banque de musiques</h2><div class="sub" id="bankSub">Tes chansons et leurs traductions</div></div>
-    <button class="btn btn-primary" onclick="openEditor()">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-      Ajouter une musique
-    </button>
+  <div id="adminLock" class="admin-lock">
+    <div class="lock-card">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+      <h2>Back office</h2>
+      <p>Connecte-toi pour gérer les chansons.</p>
+      <button class="btn btn-primary" id="lockLogin">Connexion</button>
+    </div>
   </div>
-  <div id="bankList"></div>
+  <div id="adminContent" style="display:none">
+    <div class="section-head">
+      <div><h2>Banque de musiques</h2><div class="sub" id="bankSub">Tes chansons et leurs traductions</div></div>
+      <button class="btn btn-primary" onclick="openEditor()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Ajouter une musique
+      </button>
+    </div>
+    <div id="bankList"></div>
+  </div>
 </main>
 
 <!-- MODAL EDITEUR -->
@@ -88,6 +99,10 @@
 <script>
 let SONGS=[];
 const $=s=>document.querySelector(s);
+
+R.mountAuthButton(true);
+document.getElementById("lockLogin").onclick=()=>R.openLogin();
+R.guardAdmin(load);
 
 async function load(){
   await R.mountChrome("bank");
@@ -242,7 +257,6 @@ async function saveSong(){
   R.toast(wasEdit?"Chanson mise à jour":"Chanson ajoutée");
 }
 
-load();
 </script>
 </body>
 </html>
