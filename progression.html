@@ -15,11 +15,10 @@
 <header class="topbar">
   <a class="brand" href="index.html"><span class="dot"></span><b>refrão</b></a>
   <nav class="nav">
-    <a href="index.html" data-page="home">Accueil</a>
     <a href="apprendre.html" data-page="learn">Apprendre</a>
     <a href="progression.html" data-page="prog">Progression</a>
   </nav>
-  <div class="xp-pill"><span class="lbl">XP</span><b data-xp>0</b></div>
+  <div id="authSlot" style="display:flex;gap:8px;align-items:center"></div>
 </header>
 
 <main class="shell">
@@ -45,7 +44,7 @@ function ring(pct){
 }
 
 (async function(){
-  await R.mountChrome("prog");
+  R.mountAuthButton(false); await R.mountChrome("prog");
   const store=await R.getStore();
   const songs=await store.getSongs();
   const prog=await store.getProgress();
