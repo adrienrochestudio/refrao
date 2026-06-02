@@ -186,6 +186,25 @@ R.signup = async function(opts){
   return {role:opts.role};
 };
 
+/* compléter un compte déjà connecté mais sans profil (ex : ancien compte) */
+R.completeProfile = async function(opts){
+  if(!_user) throw new Error("Non connecté");
+  const store=await R.getStore();
+  if(opts.role==="manager"){
+    const code=R.slug(opts.cohortCode);
+    if(code.length<3) throw new Error("Identifiant de cohorte trop court (3+ caractères).");
+    if(await store.getCohort(code)) throw new Error("Cet identifiant de cohorte est déjà pris.");
+    await store.setCohort(code, {code, managerUid:_user.uid, createdAt:Date.now()});
+    await store.setUser(_user.uid, {role:"manager", email:_user.email, lang:opts.lang||"pt", cohortId:code, createdAt:Date.now()});
+  }else{
+    let code="";
+    if(opts.cohortCode && opts.cohortCode.trim()){ code=R.slug(opts.cohortCode); if(!await store.getCohort(code)) throw new Error("Ce code de cohorte n'existe pas."); }
+    await store.setUser(_user.uid, {role:"learner", email:_user.email, lang:opts.lang||"en", cohortId:code, createdAt:Date.now()});
+  }
+  _profile=await store.getUser(_user.uid);
+  return {role:opts.role};
+};
+
 /* mises à jour de profil */
 R.setLang = async function(code){
   if(_profile) _profile.lang=code;
