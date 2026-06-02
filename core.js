@@ -114,7 +114,7 @@ R.getStore = function(){
    AUTHENTIFICATION + PROFIL (rôle, langue, cohorte)
    ============================================================ */
 R.PROGRESS_ID = "local";
-let _authP, _user=null, _profile=null, _cbs=[];
+let _authP, _user=null, _profile=null, _cbs=[], _authReady=false;
 
 const LOCAL_PROFILE = {role:"manager", lang:"pt", cohortId:"local", email:"local@refrao"};
 
@@ -131,6 +131,7 @@ function fbAuth(){
         const store=await R.getStore();
         _profile=await store.getUser(u.uid);
       }else{ _profile=null; R.PROGRESS_ID="anon"; }
+      _authReady=true;
       _cbs.forEach(cb=>{try{cb(_user,_profile);}catch(e){}});
     });
     return {auth,m};
@@ -142,8 +143,8 @@ function fbAuth(){
 R.onAuthProfile = function(cb){
   _cbs.push(cb);
   if(!R.AUTH_ENABLED){ R.PROGRESS_ID="local"; _user={uid:"local"}; _profile=LOCAL_PROFILE; cb(_user,_profile); return; }
-  if(_user!==null||_profile!==null) cb(_user,_profile); else cb(null,null);
-  fbAuth();
+  if(_authReady) cb(_user,_profile);   // déjà résolu : on appelle tout de suite
+  fbAuth();                            // sinon, le callback sera appelé dès la résolution
 };
 R.user = ()=>_user;
 R.profile = ()=>_profile;
