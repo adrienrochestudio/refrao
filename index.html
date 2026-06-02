@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>refrão — apprendre le portugais en musique</title>
+<title>refrão — apprendre les langues avec la musique</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -23,31 +23,59 @@
 
 <main class="shell">
   <div class="landing">
-    <div class="kicker" id="greet">olá, adrien</div>
-    <h1>Apprends le portugais<br>en <span class="em"> musique</span></h1>
-    <p class="lead-sub">Apprends le portugais avec les chansons que tu aimes.</p>
+    <div class="kicker" id="greet">boa tarde</div>
+    <h1>Apprends <span class="flip-wrap"><span class="flip em" id="flipLang">le portugais</span></span><br>avec la musique</h1>
+    <p class="lead-sub">Apprends les langues au rythme de tes chansons préférées — du premier mot au refrain par cœur.</p>
 
     <a href="apprendre.html" class="cta">
       Commencer à apprendre
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
     </a>
-    <div class="cta-sub" id="entice"></div>
+
+    <div class="stats stagger" style="margin-top:48px;max-width:560px;width:100%">
+      <div class="stat"><div class="n" id="stSongs">0</div><div class="l">chansons</div></div>
+      <div class="stat"><div class="n" id="stLearned">0</div><div class="l">chansons apprises</div></div>
+      <div class="stat"><div class="n" id="stXp">0</div><div class="l">XP</div></div>
+    </div>
   </div>
 </main>
 
 <script src="core.js"></script>
 <script>
-(async function(){
-  R.mountAuthButton(false);
+(function(){
+  R.mountAuthButton();
   R.mountChrome("home");
+
   const h=new Date().getHours();
-  document.getElementById("greet").textContent = (h<12?"bom dia":h<18?"boa tarde":"boa noite")+", adrien";
-  try{
-    const store=await R.getStore();
-    const songs=await store.getSongs();
-    const n=songs.length;
-    document.getElementById("entice").textContent = n ? (n+" chanson"+(n>1?"s":"")+" t'attend"+(n>1?"ent":"")) : "";
-  }catch(e){}
+  document.getElementById("greet").textContent = h<12?"bom dia":h<18?"boa tarde":"boa noite";
+
+  // bascule des langues toutes les 5 s (effet cube vers le bas)
+  const langs=["le portugais","l'anglais","l'espagnol","l'allemand"];
+  const fl=document.getElementById("flipLang"); let li=0;
+  setInterval(()=>{
+    fl.classList.add("out");
+    setTimeout(()=>{
+      li=(li+1)%langs.length; fl.textContent=langs[li];
+      fl.classList.add("nofx"); fl.classList.remove("out"); fl.classList.add("top");
+      void fl.offsetWidth;
+      fl.classList.remove("nofx"); fl.classList.remove("top");
+    },560);
+  },5000);
+
+  const cta=document.querySelector(".cta");
+  R.onAuthProfile(async (u,p)=>{
+    cta.setAttribute("href", u ? "apprendre.html" : "auth.html");
+    try{
+      const store=await R.getStore();
+      const songs=await store.getSongs();
+      let scope=songs;
+      if(u && p && p.lang) scope=songs.filter(s=>(s.lang||"pt")===p.lang);
+      const prog=await store.getProgress(R.PROGRESS_ID);
+      document.getElementById("stSongs").textContent=scope.length;
+      document.getElementById("stLearned").textContent=scope.filter(s=>R.songProgressPct(s,prog)===100).length;
+      document.getElementById("stXp").textContent=prog.xp||0;
+    }catch(e){}
+  });
 })();
 </script>
 </body>
