@@ -1,15 +1,9 @@
 /* ============================================================
-   refrão — core.js
-   Fichier partagé par toutes les pages.
-   >>> C'EST ICI, ET SEULEMENT ICI, QUE TU COLLES TA CONFIG FIREBASE <<<
+   refrão — core.js  (fichier partagé)
+   >>> CONFIG FIREBASE ICI <<<  + auth, rôles, cohortes, langues
    ============================================================ */
 const R = {};
 
-/* ---- 1. CONFIG FIREBASE ----------------------------------------
-   Console Firebase -> Paramètres du projet -> Vos applications (Web).
-   Tant que apiKey contient "COLLE", l'app utilise le stockage local
-   du navigateur. Dès que tu mets ta vraie clé, elle passe sur Firestore.
------------------------------------------------------------------ */
 R.FIREBASE_CONFIG = {
   apiKey:            "AIzaSyAM6s43G5e55LduqW9KYcEXgJDsh6pGUQs",
   authDomain:        "refrao-b6ae3.firebaseapp.com",
@@ -19,76 +13,95 @@ R.FIREBASE_CONFIG = {
   appId:             "1:39410882551:web:a5bea039d593d230b8c0f2"
 };
 R.USE_FIREBASE = !R.FIREBASE_CONFIG.apiKey.includes("COLLE");
+R.AUTH_ENABLED = R.USE_FIREBASE;
 
-/* ---- 2. UTILITAIRES -------------------------------------------- */
+/* ---- langues disponibles ---- */
+R.LANGS = [
+  {code:"en", label:"Anglais"},
+  {code:"pt", label:"Portugais"},
+  {code:"es", label:"Espagnol"},
+  {code:"de", label:"Allemand"}
+];
+R.langLabel = c => (R.LANGS.find(l=>l.code===c)||{label:c}).label;
+
+/* ---- utilitaires ---- */
 R.esc = s => (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 R.uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 R.norm = s => s.toLowerCase().trim().replace(/[.,;:!?¿¡"'«»…]/g,"").replace(/\s+/g," ");
 R.shuffle = a => a.map(v=>[Math.random(),v]).sort((x,y)=>x[0]-y[0]).map(v=>v[1]);
-
+R.slug = s => (s||"").toLowerCase().trim().replace(/[^a-z0-9-]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40);
 let toastT;
 R.toast = function(msg){
   let t=document.getElementById("toast");
   if(!t){ t=document.createElement("div"); t.id="toast"; t.className="toast"; document.body.appendChild(t); }
   t.textContent=msg; t.classList.add("show");
-  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2400);
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600);
 };
 
-/* ---- 3. DONNÉE DÉMO (1re utilisation seulement) ---------------- */
+/* ---- donnée démo (1re utilisation locale) ---- */
 R.DEMO = [{
-  id:"demo",
-  title:"Exemple — à remplacer",
-  artist:"Démo",
+  id:"demo", title:"Exemple — à remplacer", artist:"Démo", lang:"pt",
   deezer:"https://www.deezer.com",
   pt:"Eu gosto de música\nA canção é bonita\nNós cantamos juntos",
   fr:"J'aime la musique\nLa chanson est belle\nNous chantons ensemble",
-  pairs:[
-    {pt:"música", fr:"musique"},{pt:"canção", fr:"chanson"},
-    {pt:"bonita", fr:"belle"},{pt:"cantamos", fr:"chantons"},
-    {pt:"juntos", fr:"ensemble"},{pt:"gosto", fr:"j'aime"}
-  ]
+  pairs:[{pt:"música",fr:"musique"},{pt:"canção",fr:"chanson"},{pt:"bonita",fr:"belle"},
+         {pt:"cantamos",fr:"chantons"},{pt:"juntos",fr:"ensemble"},{pt:"gosto",fr:"j'aime"}]
 }];
 
-/* ---- 4. STOCKAGE ----------------------------------------------- */
+/* ============================================================
+   STOCKAGE
+   ============================================================ */
 class LocalStore{
   constructor(){
     if(localStorage.getItem("refrao_songs")===null) localStorage.setItem("refrao_songs", JSON.stringify(R.DEMO));
-    if(localStorage.getItem("refrao_prog")===null)  localStorage.setItem("refrao_prog", JSON.stringify({xp:0,songs:{}}));
   }
   async getSongs(){ return JSON.parse(localStorage.getItem("refrao_songs")||"[]"); }
   async saveSong(s){ const a=await this.getSongs(); const i=a.findIndex(x=>x.id===s.id); if(i>=0)a[i]=s; else a.push(s); localStorage.setItem("refrao_songs",JSON.stringify(a)); }
   async deleteSong(id){ localStorage.setItem("refrao_songs",JSON.stringify((await this.getSongs()).filter(s=>s.id!==id))); }
-  async getProgress(){ return JSON.parse(localStorage.getItem("refrao_prog")||'{"xp":0,"songs":{}}'); }
-  async saveProgress(p){ localStorage.setItem("refrao_prog",JSON.stringify(p)); }
+  async getProgress(id){ return JSON.parse(localStorage.getItem("refrao_prog_"+id)||'{"xp":0,"songs":{}}'); }
+  async saveProgress(id,p){ localStorage.setItem("refrao_prog_"+id, JSON.stringify(p)); }
+  async getUser(uid){ return JSON.parse(localStorage.getItem("refrao_user_"+uid)||"null"); }
+  async setUser(uid,d){ const cur=(await this.getUser(uid))||{}; localStorage.setItem("refrao_user_"+uid, JSON.stringify({...cur,...d})); }
+  async getCohort(c){ return JSON.parse(localStorage.getItem("refrao_cohort_"+c)||"null"); }
+  async setCohort(c,d){ localStorage.setItem("refrao_cohort_"+c, JSON.stringify(d)); }
+  async deleteCohort(c){ localStorage.removeItem("refrao_cohort_"+c); }
+  async listLearners(){ return []; }
 }
 class FirebaseStore{
   constructor(db,f){ this.db=db; this.f=f; }
-  async getSongs(){ const s=await this.f.getDocs(this.f.collection(this.db,"songs")); return s.docs.map(d=>({id:d.id,...d.data()})); }
-  async saveSong(s){ await this.f.setDoc(this.f.doc(this.db,"songs",s.id), s); }
-  async deleteSong(id){ await this.f.deleteDoc(this.f.doc(this.db,"songs",id)); }
-  async getProgress(){ const d=await this.f.getDoc(this.f.doc(this.db,"progress","main")); return d.exists()?d.data():{xp:0,songs:{}}; }
-  async saveProgress(p){ await this.f.setDoc(this.f.doc(this.db,"progress","main"), p); }
+  _c(n){ return this.f.collection(this.db,n); }
+  _d(n,id){ return this.f.doc(this.db,n,id); }
+  async getSongs(){ const s=await this.f.getDocs(this._c("songs")); return s.docs.map(d=>({id:d.id,...d.data()})); }
+  async saveSong(s){ await this.f.setDoc(this._d("songs",s.id), s); }
+  async deleteSong(id){ await this.f.deleteDoc(this._d("songs",id)); }
+  async getProgress(id){ const d=await this.f.getDoc(this._d("progress",id)); return d.exists()?d.data():{xp:0,songs:{}}; }
+  async saveProgress(id,p){ await this.f.setDoc(this._d("progress",id), p); }
+  async getUser(uid){ const d=await this.f.getDoc(this._d("users",uid)); return d.exists()?d.data():null; }
+  async setUser(uid,data){ await this.f.setDoc(this._d("users",uid), data, {merge:true}); }
+  async getCohort(c){ const d=await this.f.getDoc(this._d("cohorts",c)); return d.exists()?d.data():null; }
+  async setCohort(c,data){ await this.f.setDoc(this._d("cohorts",c), data); }
+  async deleteCohort(c){ await this.f.deleteDoc(this._d("cohorts",c)); }
+  async listLearners(code){
+    const q=this.f.query(this._c("users"), this.f.where("cohortId","==",code));
+    const s=await this.f.getDocs(q); return s.docs.map(d=>({uid:d.id,...d.data()}));
+  }
 }
 
-/* ---- app Firebase partagée (store + auth) ---- */
+/* ---- app Firebase partagée ---- */
 let _appP;
 function fbApp(){
   if(_appP) return _appP;
-  _appP=(async()=>{
-    const m=await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
-    return m.initializeApp(R.FIREBASE_CONFIG);
-  })();
+  _appP=(async()=>{ const m=await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"); return m.initializeApp(R.FIREBASE_CONFIG); })();
   return _appP;
 }
-
 let _storeP;
 R.getStore = function(){
   if(_storeP) return _storeP;
-  _storeP = (async()=>{
+  _storeP=(async()=>{
     if(R.USE_FIREBASE){
       try{
-        const fs  = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-        const app = await fbApp();
+        const fs=await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+        const app=await fbApp();
         return new FirebaseStore(fs.getFirestore(app), fs);
       }catch(e){ console.error(e); R.toast("Firebase indisponible — stockage local"); return new LocalStore(); }
     }
@@ -97,95 +110,145 @@ R.getStore = function(){
   return _storeP;
 };
 
-/* ---- AUTHENTIFICATION (Firebase Auth) -------------------------- */
-R.AUTH_ENABLED = R.USE_FIREBASE;
-let _authP, _user=null, _userCbs=[];
+/* ============================================================
+   AUTHENTIFICATION + PROFIL (rôle, langue, cohorte)
+   ============================================================ */
+R.PROGRESS_ID = "local";
+let _authP, _user=null, _profile=null, _cbs=[];
+
+const LOCAL_PROFILE = {role:"manager", lang:"pt", cohortId:"local", email:"local@refrao"};
+
 function fbAuth(){
   if(_authP) return _authP;
   _authP=(async()=>{
     const m=await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
     const app=await fbApp();
     const auth=m.getAuth(app);
-    m.onAuthStateChanged(auth, u=>{ _user=u; _userCbs.forEach(cb=>{try{cb(u);}catch(e){}}); });
-    return {auth, m};
+    m.onAuthStateChanged(auth, async u=>{
+      _user=u;
+      if(u){
+        R.PROGRESS_ID=u.uid;
+        const store=await R.getStore();
+        _profile=await store.getUser(u.uid);
+      }else{ _profile=null; R.PROGRESS_ID="anon"; }
+      _cbs.forEach(cb=>{try{cb(_user,_profile);}catch(e){}});
+    });
+    return {auth,m};
   })();
   return _authP;
 }
-R.onAuth = function(cb){ _userCbs.push(cb); cb(_user); if(R.AUTH_ENABLED) fbAuth(); };
-R.user   = ()=>_user;
-R.login  = async function(email,pw){ const {auth,m}=await fbAuth(); await m.signInWithEmailAndPassword(auth,email,pw); };
-R.logout = async function(){ const {auth,m}=await fbAuth(); await m.signOut(auth); };
 
-function injectLoginModal(){
-  if(document.getElementById("loginBg")) return;
-  const d=document.createElement("div");
-  d.innerHTML=`
-  <div class="modal-bg" id="loginBg">
-    <div class="modal" style="max-width:380px">
-      <h3>Connexion</h3>
-      <div class="lead">Accès au back office.</div>
-      <div class="field"><label>Email</label><input id="loginEmail" type="email" autocomplete="username"></div>
-      <div class="field"><label>Mot de passe</label><input id="loginPw" type="password" autocomplete="current-password"></div>
-      <div id="loginErr" style="color:var(--red);font-size:.82rem;min-height:18px;margin-bottom:4px"></div>
-      <div class="modal-foot">
-        <button class="btn btn-ghost" id="loginCancel">Annuler</button>
-        <button class="btn btn-primary" id="loginGo">Se connecter</button>
-      </div>
-    </div>
-  </div>`;
-  document.body.appendChild(d.firstElementChild);
-  const close=()=>document.getElementById("loginBg").classList.remove("open");
-  document.getElementById("loginCancel").onclick=close;
-  const go=async()=>{
-    const e=document.getElementById("loginEmail").value.trim();
-    const p=document.getElementById("loginPw").value;
-    const err=document.getElementById("loginErr"); err.textContent="";
-    try{ await R.login(e,p); close(); document.getElementById("loginPw").value=""; }
-    catch(ex){ err.textContent="Identifiants incorrects."; }
-  };
-  document.getElementById("loginGo").onclick=go;
-  document.getElementById("loginPw").addEventListener("keydown",ev=>{ if(ev.key==="Enter")go(); });
-}
-R.openLogin = function(){ injectLoginModal(); document.getElementById("loginBg").classList.add("open"); setTimeout(()=>document.getElementById("loginEmail").focus(),50); };
+/* s'abonner aux changements (user, profile) */
+R.onAuthProfile = function(cb){
+  _cbs.push(cb);
+  if(!R.AUTH_ENABLED){ R.PROGRESS_ID="local"; _user={uid:"local"}; _profile=LOCAL_PROFILE; cb(_user,_profile); return; }
+  if(_user!==null||_profile!==null) cb(_user,_profile); else cb(null,null);
+  fbAuth();
+};
+R.user = ()=>_user;
+R.profile = ()=>_profile;
 
-/* bouton de connexion dans la barre (slot #authSlot) */
-R.mountAuthButton = function(isAdmin){
-  const slot=document.getElementById("authSlot"); if(!slot) return;
-  injectLoginModal();
-  const render=(u)=>{
-    if(u){
-      slot.innerHTML = isAdmin
-        ? `<button class="btn btn-sm btn-ghost" id="logoutBtn">Déconnexion</button>`
-        : `<a class="btn btn-sm" href="admin.html">Back office</a><button class="btn btn-sm btn-ghost" id="logoutBtn">Déconnexion</button>`;
-      const lo=slot.querySelector("#logoutBtn"); if(lo) lo.onclick=()=>R.logout();
-    }else{
-      if(!R.AUTH_ENABLED && !isAdmin){ slot.innerHTML=`<a class="btn btn-sm" href="admin.html">Back office</a>`; return; }
-      slot.innerHTML = isAdmin ? "" : `<button class="btn btn-sm" id="loginBtn">Connexion</button>`;
-      const li=slot.querySelector("#loginBtn"); if(li) li.onclick=R.openLogin;
-    }
-  };
-  R.onAuth(render);
+R.login = async function(email,pw){
+  if(!R.AUTH_ENABLED){ R.toast("Connexion réelle nécessite Firebase"); return; }
+  const {auth,m}=await fbAuth();
+  await m.signInWithEmailAndPassword(auth,email,pw);
+};
+R.logout = async function(){
+  if(!R.AUTH_ENABLED){ return; }
+  const {auth,m}=await fbAuth(); await m.signOut(auth);
 };
 
-/* protège la page admin : n'appelle onAllowed() qu'une fois connecté */
-R.guardAdmin = function(onAllowed){
-  if(!R.AUTH_ENABLED){ onAllowed(); return; }   // mode local : pas de barrière
-  injectLoginModal();
-  let started=false;
-  R.onAuth(u=>{
-    const lock=document.getElementById("adminLock"), content=document.getElementById("adminContent");
-    if(u){
-      if(lock) lock.style.display="none";
-      if(content) content.style.display="";
-      if(!started){ started=true; onAllowed(); }
+/* inscription : opts = {email, pw, role, lang, cohortCode?} ; pour manager: cohortCode = identifiant choisi */
+R.signup = async function(opts){
+  if(!R.AUTH_ENABLED) throw new Error("Firebase requis");
+  const {auth,m}=await fbAuth();
+  const store=await R.getStore();
+
+  if(opts.role==="manager"){
+    const code=R.slug(opts.cohortCode);
+    if(code.length<3) throw new Error("Identifiant de cohorte trop court (3+ caractères, lettres/chiffres/tirets).");
+    const existing=await store.getCohort(code);
+    if(existing) throw new Error("Cet identifiant de cohorte est déjà pris.");
+    const cred=await m.createUserWithEmailAndPassword(auth, opts.email, opts.pw);
+    const uid=cred.user.uid;
+    await store.setCohort(code, {code, managerUid:uid, createdAt:Date.now()});
+    await store.setUser(uid, {role:"manager", email:opts.email, lang:opts.lang||"pt", cohortId:code, createdAt:Date.now()});
+  }else{
+    let code="";
+    if(opts.cohortCode && opts.cohortCode.trim()){
+      code=R.slug(opts.cohortCode);
+      const c=await store.getCohort(code);
+      if(!c) throw new Error("Ce code de cohorte n'existe pas.");
+    }
+    const cred=await m.createUserWithEmailAndPassword(auth, opts.email, opts.pw);
+    await store.setUser(cred.user.uid, {role:"learner", email:opts.email, lang:opts.lang||"en", cohortId:code, createdAt:Date.now()});
+  }
+  return {role:opts.role};
+};
+
+/* mises à jour de profil */
+R.setLang = async function(code){
+  if(_profile) _profile.lang=code;
+  const store=await R.getStore();
+  if(R.AUTH_ENABLED && _user) await store.setUser(_user.uid, {lang:code});
+};
+/* changer l'identifiant de cohorte (manager) : migre les apprenants */
+R.changeCohortCode = async function(oldCode, rawNew){
+  const store=await R.getStore();
+  const code=R.slug(rawNew);
+  if(code.length<3) throw new Error("Identifiant trop court.");
+  if(code===oldCode) return code;
+  if(await store.getCohort(code)) throw new Error("Cet identifiant est déjà pris.");
+  await store.setCohort(code, {code, managerUid:_user.uid, createdAt:Date.now()});
+  if(store.listLearners){
+    const learners=await store.listLearners(oldCode);
+    for(const l of learners){ await store.setUser(l.uid, {cohortId:code}); }
+  }
+  await store.deleteCohort(oldCode);
+  await store.setUser(_user.uid, {cohortId:code});
+  if(_profile) _profile.cohortId=code;
+  return code;
+};
+
+/* ============================================================
+   ÉLÉMENTS D'INTERFACE (bouton de compte, gardes de page)
+   ============================================================ */
+R.mountAuthButton = function(){
+  const slot=document.getElementById("authSlot"); if(!slot) return;
+  R.onAuthProfile((u,p)=>{
+    if(u && p){
+      const gestion = p.role==="manager" ? `<a class="btn btn-sm" href="gestion.html">Espace gestion</a>` : "";
+      slot.innerHTML = gestion+`<button class="btn btn-sm btn-ghost" id="logoutBtn">Déconnexion</button>`;
+      const lo=slot.querySelector("#logoutBtn"); if(lo) lo.onclick=()=>R.logout().then(()=>location.href="index.html");
     }else{
-      if(content) content.style.display="none";
-      if(lock) lock.style.display="flex";
+      slot.innerHTML = `<a class="btn btn-sm" href="auth.html">Connexion</a>`;
     }
   });
 };
 
-/* ---- 5. MOTEUR DE NIVEAUX -------------------------------------- */
+/* page réservée : any = juste connecté ; manager = rôle gestionnaire */
+R.guard = function(kind, onAllowed){
+  if(!R.AUTH_ENABLED){ onAllowed(LOCAL_PROFILE); return; }
+  let started=false;
+  R.onAuthProfile((u,p)=>{
+    if(!u){ location.href="auth.html"; return; }
+    if(kind==="manager" && (!p || p.role!=="manager")){
+      document.body.innerHTML='<div style="max-width:520px;margin:18vh auto;text-align:center;font-family:Manrope,sans-serif;color:#eef1f7"><h2 style="font-family:Bricolage Grotesque,sans-serif">Accès réservé</h2><p style="color:#9aa0ad">Cet espace est réservé aux gestionnaires de cohorte.</p><a href="index.html" style="color:#80b7ff">Retour</a></div>';
+      return;
+    }
+    if(!started){ started=true; onAllowed(p); }
+  });
+};
+
+/* ---- topbar : lien actif (le bouton de compte est géré à part) ---- */
+R.mountChrome = function(active){
+  const link=document.querySelector(`.nav a[data-page="${active}"]`);
+  if(link) link.classList.add("on");
+};
+
+/* ============================================================
+   MOTEUR DE NIVEAUX
+   ============================================================ */
 R.lines = function(s){
   const pt=(s.pt||"").split("\n").map(x=>x.trim()).filter(Boolean);
   const fr=(s.fr||"").split("\n").map(x=>x.trim()).filter(Boolean);
@@ -211,17 +274,6 @@ R.songProgressPct = function(s, prog){
   const lv=R.buildLevels(s); if(!lv.length) return 0;
   const done=(prog.songs[s.id]?.done)||[];
   return Math.round(done.filter(k=>lv.some(l=>l.key===k)).length / lv.length * 100);
-};
-
-/* ---- 6. TOPBAR (XP + lien actif) ------------------------------- */
-R.mountChrome = async function(active){
-  const link=document.querySelector(`.nav a[data-page="${active}"]`);
-  if(link) link.classList.add("on");
-  try{
-    const store=await R.getStore();
-    const p=await store.getProgress();
-    document.querySelectorAll("[data-xp]").forEach(e=>e.textContent=p.xp||0);
-  }catch(e){}
 };
 
 window.R = R;
