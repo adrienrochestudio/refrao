@@ -24,7 +24,13 @@
 <main class="shell">
   <!-- choix de la chanson -->
   <section id="chooser" class="view active">
-    <div class="section-head"><div><h2>Apprendre</h2><div class="sub">Choisis une chanson pour commencer</div></div></div>
+    <div class="section-head">
+      <div><h2><span class="live-dot"></span>Apprendre</h2><div class="sub">Choisis une chanson pour commencer</div></div>
+      <div style="display:flex;align-items:center;gap:9px">
+        <span style="font-size:.78rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.06em">Langue</span>
+        <select id="langSel" style="background:var(--surface);border:1px solid var(--border-2);border-radius:10px;padding:9px 12px;color:var(--text);font-weight:600;font-size:.88rem"></select>
+      </div>
+    </div>
     <div id="learnList"></div>
   </section>
 
@@ -43,27 +49,39 @@
 
 <script src="core.js"></script>
 <script>
-let SONGS=[], PROG={xp:0,songs:{}}, store;
+let SONGS=[], PROG={xp:0,songs:{}}, store, CURLANG="pt";
 const $=s=>document.querySelector(s);
 
-async function load(){
-  R.mountAuthButton(false); await R.mountChrome("learn");
+R.mountAuthButton();
+R.guard("any", init);
+
+async function init(profile){
+  R.mountChrome("learn");
   store=await R.getStore();
   SONGS=await store.getSongs();
-  PROG=await store.getProgress();
+  PROG=await store.getProgress(R.PROGRESS_ID);
+  CURLANG=(profile && profile.lang) || "pt";
+
+  const sel=$("#langSel");
+  sel.innerHTML=R.LANGS.map(l=>`<option value="${l.code}">${l.label}</option>`).join("");
+  sel.value=CURLANG;
+  sel.onchange=async()=>{ CURLANG=sel.value; await R.setLang(CURLANG); renderChooser(); };
+
   renderChooser();
   const sid=new URLSearchParams(location.search).get("song");
   if(sid && SONGS.find(s=>s.id===sid)) openLevels(sid);
 }
+function songsForLang(){ return SONGS.filter(s=>(s.lang||"pt")===CURLANG); }
 
 function showView(id){ document.querySelectorAll("main .view").forEach(v=>v.classList.remove("active")); $("#"+id).classList.add("active"); window.scrollTo({top:0,behavior:"smooth"}); }
 function showChooser(){ renderChooser(); showView("chooser"); }
 
 function renderChooser(){
   const list=$("#learnList");
-  if(!SONGS.length){ list.className=""; list.innerHTML=`<div class="empty"><b>Ta banque est vide</b>Ajoute une chanson dans la banque de musiques d'abord.</div>`; return; }
+  const songs=songsForLang();
+  if(!songs.length){ list.className=""; list.innerHTML=`<div class="empty"><b>Aucune chanson en ${R.langLabel(CURLANG)}</b>Choisis une autre langue, ou demande à un gestionnaire d'en ajouter.</div>`; return; }
   list.className="song-grid stagger";
-  list.innerHTML=SONGS.map(s=>`
+  list.innerHTML=songs.map(s=>`
     <div class="song-card" onclick="openLevels('${s.id}')">
       <div class="ttl">${R.esc(s.title)}</div>
       <div class="art">${R.esc(s.artist||"—")}</div>
@@ -160,9 +178,9 @@ function renderQuestion(){
 }
 
 function viewFlash(q){ return `<div class="ex-card"><div class="ex-tag">Vocabulaire · découverte</div><div class="ex-q">Mémorise</div><div style="text-align:center;margin:30px 0"><div class="ex-target" style="display:block">${R.esc(q.pt)}</div><div style="color:var(--text-mute);margin:10px 0">↓</div><div style="font-size:1.4rem;font-weight:600;color:var(--green)">${R.esc(q.fr)}</div></div><div class="ex-foot"><span></span><button class="btn btn-primary" id="next">Suivant</button></div></div>`; }
-function viewMcq(q){ return `<div class="ex-card"><div class="ex-tag">${q.from==="pt"?"Portugais → Français":"Français → Portugais"}</div><div class="ex-q">Quelle est la traduction ?</div><div class="ex-target">${R.esc(q.q)}</div><div class="choices">${q.opts.map(o=>`<button class="choice" data-o="${R.esc(o)}">${R.esc(o)}</button>`).join("")}</div><div class="ex-foot"><div class="feedback" id="fb"></div><span></span></div></div>`; }
+function viewMcq(q){ return `<div class="ex-card"><div class="ex-tag">${q.from==="pt"?R.langLabel(SESS.song.lang)+" → Français":"Français → "+R.langLabel(SESS.song.lang)}</div><div class="ex-q">Quelle est la traduction ?</div><div class="ex-target">${R.esc(q.q)}</div><div class="choices">${q.opts.map(o=>`<button class="choice" data-o="${R.esc(o)}">${R.esc(o)}</button>`).join("")}</div><div class="ex-foot"><div class="feedback" id="fb"></div><span></span></div></div>`; }
 function viewMatch(q){ const l=q.pairs.map(p=>`<button class="match-item" data-side="l" data-id="${R.esc(p.pt)}">${R.esc(p.pt)}</button>`).join(""); const r=R.shuffle(q.pairs).map(p=>`<button class="match-item" data-side="r" data-id="${R.esc(p.pt)}">${R.esc(p.fr)}</button>`).join(""); return `<div class="ex-card"><div class="ex-tag">Association</div><div class="ex-q">Relie chaque mot</div><div class="match"><div class="match-col">${l}</div><div class="match-col">${r}</div></div><div class="ex-foot"><div class="feedback" id="fb"></div><span></span></div></div>`; }
-function viewWrite(q){ return `<div class="ex-card"><div class="ex-tag">${q.dir==="pt→fr"?"Portugais → Français":"Français → Portugais"}</div><div class="ex-q">${q.big?"Écris le vers en portugais":"Écris la traduction"}</div><div class="ex-target" style="${q.big?'font-size:1.3rem':''}">${R.esc(q.prompt)}</div><input class="ex-input" id="wIn" placeholder="ta réponse..." autocomplete="off" autocapitalize="off"><div class="ex-foot"><div class="feedback" id="fb"></div><button class="btn btn-primary" id="check">Vérifier</button></div></div>`; }
+function viewWrite(q){ return `<div class="ex-card"><div class="ex-tag">${q.dir==="pt→fr"?R.langLabel(SESS.song.lang)+" → Français":"Français → "+R.langLabel(SESS.song.lang)}</div><div class="ex-q">${q.big?"Écris le vers":"Écris la traduction"}</div><div class="ex-target" style="${q.big?'font-size:1.3rem':''}">${R.esc(q.prompt)}</div><input class="ex-input" id="wIn" placeholder="ta réponse..." autocomplete="off" autocapitalize="off"><div class="ex-foot"><div class="feedback" id="fb"></div><button class="btn btn-primary" id="check">Vérifier</button></div></div>`; }
 function viewBuild(q){ return `<div class="ex-card"><div class="ex-tag">Reconstruis la phrase</div><div class="ex-q">Traduis en portugais</div><div class="ex-prompt" style="font-size:1.1rem;color:var(--blue-soft)">${R.esc(q.fr)}</div><div class="builder"><div class="build-zone" id="zone"></div><div class="bank" id="bank">${q.words.map((w,i)=>`<button class="tile" data-i="${i}">${R.esc(w)}</button>`).join("")}</div></div><div class="ex-foot"><div class="feedback" id="fb"></div><button class="btn btn-primary" id="check">Vérifier</button></div></div>`; }
 function viewCloze(q){ return `<div class="ex-card"><div class="ex-tag">Texte à trous</div><div class="ex-q">Complète le vers</div><div class="ex-prompt" style="color:var(--blue-soft)">${R.esc(q.fr)}</div><div class="cloze">${R.esc(q.before)} <span class="blank" id="blank">?</span> ${R.esc(q.after)}</div><div class="choices" style="margin-top:22px">${q.opts.map(o=>`<button class="choice" data-o="${R.esc(o)}">${R.esc(o)}</button>`).join("")}</div><div class="ex-foot"><div class="feedback" id="fb"></div><span></span></div></div>`; }
 
@@ -261,7 +279,7 @@ async function renderFinish(){
     if(!PROG.songs[SESS.songId].done.includes(SESS.key)) PROG.songs[SESS.songId].done.push(SESS.key);
   }
   PROG.xp=(PROG.xp||0)+xpGain;
-  await store.saveProgress(PROG);
+  await store.saveProgress(R.PROGRESS_ID, PROG);
   document.querySelectorAll("[data-xp]").forEach(e=>e.textContent=PROG.xp);
   if(passed) confetti();
   $("#exWrap").innerHTML=`
@@ -286,7 +304,6 @@ function confetti(){
   setTimeout(()=>c.remove(),3500);
 }
 
-load();
 </script>
 </body>
 </html>
