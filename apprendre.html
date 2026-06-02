@@ -1,293 +1,227 @@
-<!doctype html>
-<html lang="fr">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>refrão — apprendre</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-<div class="bg-fx"></div>
-
-<header class="topbar">
-  <a class="brand" href="index.html"><span class="dot"></span><b>refrão</b></a>
-  <nav class="nav">
-    <a href="index.html" data-page="home">Accueil</a>
-    <a href="apprendre.html" data-page="learn">Apprendre</a>
-    <a href="progression.html" data-page="prog">Progression</a>
-  </nav>
-  <div class="xp-pill"><span class="lbl">XP</span><b data-xp>0</b></div>
-</header>
-
-<main class="shell">
-  <!-- choix de la chanson -->
-  <section id="chooser" class="view active">
-    <div class="section-head"><div><h2>Apprendre</h2><div class="sub">Choisis une chanson pour commencer</div></div></div>
-    <div id="learnList"></div>
-  </section>
-
-  <!-- carte des niveaux -->
-  <section id="levels" class="view">
-    <a class="back" onclick="showChooser()">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
-      Choisir une autre chanson
-    </a>
-    <div id="levelMap"></div>
-  </section>
-
-  <!-- exercice -->
-  <section id="exercise" class="view"><div class="ex-wrap" id="exWrap"></div></section>
-</main>
-
-<script src="core.js"></script>
-<script>
-let SONGS=[], PROG={xp:0,songs:{}}, store;
-const $=s=>document.querySelector(s);
-
-async function load(){
-  await R.mountChrome("learn");
-  store=await R.getStore();
-  SONGS=await store.getSongs();
-  PROG=await store.getProgress();
-  renderChooser();
-  const sid=new URLSearchParams(location.search).get("song");
-  if(sid && SONGS.find(s=>s.id===sid)) openLevels(sid);
-}
-
-function showView(id){ document.querySelectorAll("main .view").forEach(v=>v.classList.remove("active")); $("#"+id).classList.add("active"); window.scrollTo({top:0,behavior:"smooth"}); }
-function showChooser(){ renderChooser(); showView("chooser"); }
-
-function renderChooser(){
-  const list=$("#learnList");
-  if(!SONGS.length){ list.className=""; list.innerHTML=`<div class="empty"><b>Ta banque est vide</b>Ajoute une chanson dans la banque de musiques d'abord.</div>`; return; }
-  list.className="song-grid stagger";
-  list.innerHTML=SONGS.map(s=>`
-    <div class="song-card" onclick="openLevels('${s.id}')">
-      <div class="ttl">${R.esc(s.title)}</div>
-      <div class="art">${R.esc(s.artist||"—")}</div>
-      <div class="meta"><span><span class="v">${R.buildLevels(s).length}</span> niveaux</span><span><span class="v">${R.songProgressPct(s,PROG)}%</span> fait</span></div>
-      <div class="prog"><div class="bar"><i style="width:${R.songProgressPct(s,PROG)}%"></i></div></div>
-    </div>`).join("");
-}
-
-/* ---- carte des niveaux ---- */
-function openLevels(id){
-  const s=SONGS.find(x=>x.id===id); if(!s) return;
-  const lv=R.buildLevels(s);
-  const done=(PROG.songs[id]?.done)||[];
-  let firstLocked=true;
-  const nodes=lv.map((l,i)=>{
-    const isDone=done.includes(l.key);
-    let state="locked";
-    if(isDone) state="done"; else if(firstLocked){ state="current"; firstLocked=false; }
-    const clk=state!=="locked";
-    return `${i>0?`<div class="connector ${done.includes(lv[i-1].key)?'done':''}"></div>`:""}
-      <div class="node ${state}" ${clk?`onclick="startLevel('${id}','${l.key}')"`:""}>
-        <div class="bubble">${i+1}
-          ${state==="locked"?`<span class="lock"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>`:""}
-          ${state==="done"?`<span class="chk"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></span>`:""}
-        </div>
-        <div class="info"><div class="nm">${l.name}</div><div class="ds">${l.desc}</div></div>
-      </div>`;
-  }).join("");
-  $("#levelMap").innerHTML=`
-    <div class="learn-head">
-      <div class="row">
-        <div><h2>${R.esc(s.title)}</h2><div class="art">${R.esc(s.artist||"")}</div></div>
-        ${s.deezer?`<a class="deezer" href="${R.esc(s.deezer)}" target="_blank" rel="noopener"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M19 4h3v4h-3zM19 9h3v4h-3zM14 9h3v4h-3zM14 14h3v4h-3zM9 14h3v4H9zM4 14h3v4H4z"/></svg> Écouter sur Deezer</a>`:""}
-      </div>
-      <div class="pct"><span>Progression</span><span>${R.songProgressPct(s,PROG)}%</span></div>
-      <div class="bar green" style="margin-top:8px"><i style="width:${R.songProgressPct(s,PROG)}%"></i></div>
-    </div>
-    <div class="path">${nodes||'<div class="empty"><b>Pas assez de contenu</b>Ajoute des mots reliés et des paroles pour générer des niveaux.</div>'}</div>`;
-  showView("levels");
-  requestAnimationFrame(()=>$("#levelMap").querySelectorAll(".bar i").forEach(b=>b.style.width=b.style.width));
-}
-
 /* ============================================================
-   MOTEUR D'EXERCICES
+   refrão — core.js
+   Fichier partagé par toutes les pages.
+   >>> C'EST ICI, ET SEULEMENT ICI, QUE TU COLLES TA CONFIG FIREBASE <<<
    ============================================================ */
-let SESS=null;
-function startLevel(songId,key){
-  const s=SONGS.find(x=>x.id===songId);
-  const lv=R.buildLevels(s).find(l=>l.key===key);
-  SESS={songId, key, type:lv.type, name:lv.name, qs:makeQuestions(s,lv.type), idx:0, correct:0, song:s};
-  showView("exercise"); renderQuestion();
+const R = {};
+
+/* ---- 1. CONFIG FIREBASE ----------------------------------------
+   Console Firebase -> Paramètres du projet -> Vos applications (Web).
+   Tant que apiKey contient "COLLE", l'app utilise le stockage local
+   du navigateur. Dès que tu mets ta vraie clé, elle passe sur Firestore.
+----------------------------------------------------------------- */
+R.FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyAM6s43G5e55LduqW9KYcEXgJDsh6pGUQs",
+  authDomain:        "refrao-b6ae3.firebaseapp.com",
+  projectId:         "refrao-b6ae3",
+  storageBucket:     "refrao-b6ae3.firebasestorage.app",
+  messagingSenderId: "39410882551",
+  appId:             "1:39410882551:web:a5bea039d593d230b8c0f2"
+};
+R.USE_FIREBASE = !R.FIREBASE_CONFIG.apiKey.includes("COLLE");
+
+/* ---- 2. UTILITAIRES -------------------------------------------- */
+R.esc = s => (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+R.uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+R.norm = s => s.toLowerCase().trim().replace(/[.,;:!?¿¡"'«»…]/g,"").replace(/\s+/g," ");
+R.shuffle = a => a.map(v=>[Math.random(),v]).sort((x,y)=>x[0]-y[0]).map(v=>v[1]);
+
+let toastT;
+R.toast = function(msg){
+  let t=document.getElementById("toast");
+  if(!t){ t=document.createElement("div"); t.id="toast"; t.className="toast"; document.body.appendChild(t); }
+  t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2400);
+};
+
+/* ---- 3. DONNÉE DÉMO (1re utilisation seulement) ---------------- */
+R.DEMO = [{
+  id:"demo",
+  title:"Exemple — à remplacer",
+  artist:"Démo",
+  deezer:"https://www.deezer.com",
+  pt:"Eu gosto de música\nA canção é bonita\nNós cantamos juntos",
+  fr:"J'aime la musique\nLa chanson est belle\nNous chantons ensemble",
+  pairs:[
+    {pt:"música", fr:"musique"},{pt:"canção", fr:"chanson"},
+    {pt:"bonita", fr:"belle"},{pt:"cantamos", fr:"chantons"},
+    {pt:"juntos", fr:"ensemble"},{pt:"gosto", fr:"j'aime"}
+  ]
+}];
+
+/* ---- 4. STOCKAGE ----------------------------------------------- */
+class LocalStore{
+  constructor(){
+    if(localStorage.getItem("refrao_songs")===null) localStorage.setItem("refrao_songs", JSON.stringify(R.DEMO));
+    if(localStorage.getItem("refrao_prog")===null)  localStorage.setItem("refrao_prog", JSON.stringify({xp:0,songs:{}}));
+  }
+  async getSongs(){ return JSON.parse(localStorage.getItem("refrao_songs")||"[]"); }
+  async saveSong(s){ const a=await this.getSongs(); const i=a.findIndex(x=>x.id===s.id); if(i>=0)a[i]=s; else a.push(s); localStorage.setItem("refrao_songs",JSON.stringify(a)); }
+  async deleteSong(id){ localStorage.setItem("refrao_songs",JSON.stringify((await this.getSongs()).filter(s=>s.id!==id))); }
+  async getProgress(){ return JSON.parse(localStorage.getItem("refrao_prog")||'{"xp":0,"songs":{}}'); }
+  async saveProgress(p){ localStorage.setItem("refrao_prog",JSON.stringify(p)); }
+}
+class FirebaseStore{
+  constructor(db,f){ this.db=db; this.f=f; }
+  async getSongs(){ const s=await this.f.getDocs(this.f.collection(this.db,"songs")); return s.docs.map(d=>({id:d.id,...d.data()})); }
+  async saveSong(s){ await this.f.setDoc(this.f.doc(this.db,"songs",s.id), s); }
+  async deleteSong(id){ await this.f.deleteDoc(this.f.doc(this.db,"songs",id)); }
+  async getProgress(){ const d=await this.f.getDoc(this.f.doc(this.db,"progress","main")); return d.exists()?d.data():{xp:0,songs:{}}; }
+  async saveProgress(p){ await this.f.setDoc(this.f.doc(this.db,"progress","main"), p); }
 }
 
-function makeQuestions(s,type){
-  const P=s.pairs||[], L=R.lines(s);
-  const pick=(arr,n)=>R.shuffle(arr).slice(0,n);
-  switch(type){
-    case "flash": return P.map(p=>({kind:"flash",pt:p.pt,fr:p.fr}));
-    case "mcq": return pick(P,Math.min(8,P.length)).map(p=>{
-      const d=Math.random()>.5, correct=d?p.fr:p.pt;
-      const pool=P.filter(x=>x!==p).map(x=>d?x.fr:x.pt);
-      return {kind:"mcq", q:d?p.pt:p.fr, from:d?"pt":"fr", correct, opts:R.shuffle([correct,...pick(pool,3)])};
-    });
-    case "match": return [{kind:"match", pairs:pick(P,Math.min(5,P.length))}];
-    case "write": return pick(P,Math.min(8,P.length)).map(p=>{
-      const d=Math.random()>.5; return {kind:"write", prompt:d?p.pt:p.fr, answer:d?p.fr:p.pt, dir:d?"pt→fr":"fr→pt"};
-    });
-    case "build": return pick(L.filter(l=>l.pt.split(/\s+/).length>=2),Math.min(6,L.length)).map(l=>({kind:"build", fr:l.fr, pt:l.pt, words:R.shuffle(l.pt.split(/\s+/))}));
-    case "cloze": return pick(L.filter(l=>l.pt.split(/\s+/).length>=2),Math.min(6,L.length)).map(l=>{
-      const ws=l.pt.split(/\s+/), bi=Math.floor(Math.random()*ws.length), answer=ws[bi];
-      const pool=(s.pairs||[]).map(p=>p.pt.split(/\s+/)[0]).filter(w=>R.norm(w)!==R.norm(answer));
-      return {kind:"cloze", fr:l.fr, before:ws.slice(0,bi).join(" "), after:ws.slice(bi+1).join(" "), answer, opts:R.shuffle([answer,...pick([...new Set(pool)],3)])};
-    });
-    case "master": return pick(L,Math.min(6,L.length)).map(l=>({kind:"master", fr:l.fr, answer:l.pt}));
-  }
+/* ---- app Firebase partagée (store + auth) ---- */
+let _appP;
+function fbApp(){
+  if(_appP) return _appP;
+  _appP=(async()=>{
+    const m=await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
+    return m.initializeApp(R.FIREBASE_CONFIG);
+  })();
+  return _appP;
 }
 
-function renderQuestion(){
-  const w=$("#exWrap");
-  if(SESS.idx>=SESS.qs.length) return renderFinish();
-  const q=SESS.qs[SESS.idx], pct=Math.round(SESS.idx/SESS.qs.length*100);
-  const top=`<div class="ex-top"><button class="close" onclick="quitLevel()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button><div class="bar"><i style="width:${pct}%"></i></div></div>`;
-  let body="";
-  if(q.kind==="flash") body=viewFlash(q);
-  if(q.kind==="mcq")   body=viewMcq(q);
-  if(q.kind==="match") body=viewMatch(q);
-  if(q.kind==="write") body=viewWrite(q);
-  if(q.kind==="build") body=viewBuild(q);
-  if(q.kind==="cloze") body=viewCloze(q);
-  if(q.kind==="master")body=viewWrite({prompt:q.fr,answer:q.answer,dir:"fr→pt",big:true});
-  w.innerHTML=top+body; w.dataset.locked="";
-  requestAnimationFrame(()=>{const b=w.querySelector(".bar i"); if(b)b.style.width=pct+"%";});
-  wireQuestion(q);
+let _storeP;
+R.getStore = function(){
+  if(_storeP) return _storeP;
+  _storeP = (async()=>{
+    if(R.USE_FIREBASE){
+      try{
+        const fs  = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+        const app = await fbApp();
+        return new FirebaseStore(fs.getFirestore(app), fs);
+      }catch(e){ console.error(e); R.toast("Firebase indisponible — stockage local"); return new LocalStore(); }
+    }
+    return new LocalStore();
+  })();
+  return _storeP;
+};
+
+/* ---- AUTHENTIFICATION (Firebase Auth) -------------------------- */
+R.AUTH_ENABLED = R.USE_FIREBASE;
+let _authP, _user=null, _userCbs=[];
+function fbAuth(){
+  if(_authP) return _authP;
+  _authP=(async()=>{
+    const m=await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
+    const app=await fbApp();
+    const auth=m.getAuth(app);
+    m.onAuthStateChanged(auth, u=>{ _user=u; _userCbs.forEach(cb=>{try{cb(u);}catch(e){}}); });
+    return {auth, m};
+  })();
+  return _authP;
 }
+R.onAuth = function(cb){ _userCbs.push(cb); cb(_user); if(R.AUTH_ENABLED) fbAuth(); };
+R.user   = ()=>_user;
+R.login  = async function(email,pw){ const {auth,m}=await fbAuth(); await m.signInWithEmailAndPassword(auth,email,pw); };
+R.logout = async function(){ const {auth,m}=await fbAuth(); await m.signOut(auth); };
 
-function viewFlash(q){ return `<div class="ex-card"><div class="ex-tag">Vocabulaire · découverte</div><div class="ex-q">Mémorise</div><div style="text-align:center;margin:30px 0"><div class="ex-target" style="display:block">${R.esc(q.pt)}</div><div style="color:var(--text-mute);margin:10px 0">↓</div><div style="font-size:1.4rem;font-weight:600;color:var(--green)">${R.esc(q.fr)}</div></div><div class="ex-foot"><span></span><button class="btn btn-primary" id="next">Suivant</button></div></div>`; }
-function viewMcq(q){ return `<div class="ex-card"><div class="ex-tag">${q.from==="pt"?"Portugais → Français":"Français → Portugais"}</div><div class="ex-q">Quelle est la traduction ?</div><div class="ex-target">${R.esc(q.q)}</div><div class="choices">${q.opts.map(o=>`<button class="choice" data-o="${R.esc(o)}">${R.esc(o)}</button>`).join("")}</div><div class="ex-foot"><div class="feedback" id="fb"></div><span></span></div></div>`; }
-function viewMatch(q){ const l=q.pairs.map(p=>`<button class="match-item" data-side="l" data-id="${R.esc(p.pt)}">${R.esc(p.pt)}</button>`).join(""); const r=R.shuffle(q.pairs).map(p=>`<button class="match-item" data-side="r" data-id="${R.esc(p.pt)}">${R.esc(p.fr)}</button>`).join(""); return `<div class="ex-card"><div class="ex-tag">Association</div><div class="ex-q">Relie chaque mot</div><div class="match"><div class="match-col">${l}</div><div class="match-col">${r}</div></div><div class="ex-foot"><div class="feedback" id="fb"></div><span></span></div></div>`; }
-function viewWrite(q){ return `<div class="ex-card"><div class="ex-tag">${q.dir==="pt→fr"?"Portugais → Français":"Français → Portugais"}</div><div class="ex-q">${q.big?"Écris le vers en portugais":"Écris la traduction"}</div><div class="ex-target" style="${q.big?'font-size:1.3rem':''}">${R.esc(q.prompt)}</div><input class="ex-input" id="wIn" placeholder="ta réponse..." autocomplete="off" autocapitalize="off"><div class="ex-foot"><div class="feedback" id="fb"></div><button class="btn btn-primary" id="check">Vérifier</button></div></div>`; }
-function viewBuild(q){ return `<div class="ex-card"><div class="ex-tag">Reconstruis la phrase</div><div class="ex-q">Traduis en portugais</div><div class="ex-prompt" style="font-size:1.1rem;color:var(--blue-soft)">${R.esc(q.fr)}</div><div class="builder"><div class="build-zone" id="zone"></div><div class="bank" id="bank">${q.words.map((w,i)=>`<button class="tile" data-i="${i}">${R.esc(w)}</button>`).join("")}</div></div><div class="ex-foot"><div class="feedback" id="fb"></div><button class="btn btn-primary" id="check">Vérifier</button></div></div>`; }
-function viewCloze(q){ return `<div class="ex-card"><div class="ex-tag">Texte à trous</div><div class="ex-q">Complète le vers</div><div class="ex-prompt" style="color:var(--blue-soft)">${R.esc(q.fr)}</div><div class="cloze">${R.esc(q.before)} <span class="blank" id="blank">?</span> ${R.esc(q.after)}</div><div class="choices" style="margin-top:22px">${q.opts.map(o=>`<button class="choice" data-o="${R.esc(o)}">${R.esc(o)}</button>`).join("")}</div><div class="ex-foot"><div class="feedback" id="fb"></div><span></span></div></div>`; }
-
-function wireQuestion(q){
-  const w=$("#exWrap");
-  if(q.kind==="flash"){ $("#next").onclick=()=>advance(true); return; }
-
-  if(q.kind==="mcq"||q.kind==="cloze"){
-    w.querySelectorAll(".choice").forEach(btn=>{
-      btn.onclick=()=>{
-        if(w.dataset.locked) return; w.dataset.locked="1";
-        const good=R.norm(btn.dataset.o)===R.norm(q.answer||q.correct);
-        if(q.kind==="cloze") $("#blank").textContent=btn.dataset.o;
-        if(good){ btn.classList.add("good"); feedback(true); setTimeout(()=>advance(true),850); }
-        else{
-          btn.classList.add("bad");
-          w.querySelectorAll(".choice").forEach(b=>{ if(R.norm(b.dataset.o)===R.norm(q.answer||q.correct))b.classList.add("good"); else if(b!==btn)b.classList.add("dim"); });
-          feedback(false); setTimeout(()=>advance(false),1500);
-        }
-      };
-    });
-    return;
-  }
-
-  if(q.kind==="write"||q.kind==="master"){
-    const inp=$("#wIn");
-    const submit=()=>{
-      if(w.dataset.locked) return; w.dataset.locked="1";
-      const good=R.norm(inp.value)===R.norm(q.answer);
-      inp.classList.add(good?"good":"bad");
-      if(good){ feedback(true); setTimeout(()=>advance(true),800); }
-      else{ feedback(false,"Réponse : "+q.answer); setTimeout(()=>advance(false),1700); }
-    };
-    $("#check").onclick=submit; inp.focus();
-    inp.onkeydown=e=>{ if(e.key==="Enter")submit(); };
-    return;
-  }
-
-  if(q.kind==="match"){
-    let sel=null, ok=0;
-    w.querySelectorAll(".match-item").forEach(it=>{
-      it.onclick=()=>{
-        if(it.classList.contains("ok")) return;
-        if(!sel){ if(it.dataset.side!=="l")return; sel=it; it.classList.add("sel"); return; }
-        if(it.dataset.side!=="r"){ sel.classList.remove("sel"); sel=it; it.classList.add("sel"); return; }
-        if(sel.dataset.id===it.dataset.id){
-          sel.classList.remove("sel"); sel.classList.add("ok"); it.classList.add("ok"); ok++;
-          if(ok===q.pairs.length){ feedback(true); setTimeout(()=>advance(true),800); }
-        }else{
-          const s2=sel; it.classList.add("err"); s2.classList.add("err");
-          setTimeout(()=>{it.classList.remove("err");s2.classList.remove("err","sel");},450);
-          feedback(false);
-        }
-        sel=null;
-      };
-    });
-    return;
-  }
-
-  if(q.kind==="build"){
-    const zone=$("#zone"), bank=$("#bank");
-    bank.querySelectorAll(".tile").forEach(t=>{
-      t.onclick=()=>{ if(t.classList.contains("used"))return; t.classList.add("used");
-        const c=t.cloneNode(true); c.classList.remove("used");
-        c.onclick=()=>{ c.remove(); t.classList.remove("used"); };
-        zone.appendChild(c);
-      };
-    });
-    $("#check").onclick=()=>{
-      if(w.dataset.locked)return; w.dataset.locked="1";
-      const built=[...zone.querySelectorAll(".tile")].map(x=>x.textContent).join(" ");
-      const good=R.norm(built)===R.norm(q.pt);
-      zone.style.borderColor=good?"var(--green)":"var(--red)";
-      if(good){ feedback(true); setTimeout(()=>advance(true),800); }
-      else{ feedback(false,"Réponse : "+q.pt); setTimeout(()=>advance(false),1800); }
-    };
-    return;
-  }
-}
-
-function feedback(good,msg){
-  const fb=$("#fb"); if(!fb)return;
-  fb.className="feedback show "+(good?"good":"bad");
-  fb.innerHTML=good
-    ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg> Correct`
-    : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg> ${R.esc(msg||"Pas tout à fait")}`;
-}
-function advance(correct){ if(correct)SESS.correct++; SESS.idx++; renderQuestion(); }
-function quitLevel(){ openLevels(SESS.songId); }
-
-async function renderFinish(){
-  const total=SESS.qs.length, acc=total?Math.round(SESS.correct/total*100):100, passed=acc>=60;
-  const xpGain=SESS.correct*10+(passed?20:0);
-  if(passed){
-    PROG.songs[SESS.songId]=PROG.songs[SESS.songId]||{done:[]};
-    if(!PROG.songs[SESS.songId].done.includes(SESS.key)) PROG.songs[SESS.songId].done.push(SESS.key);
-  }
-  PROG.xp=(PROG.xp||0)+xpGain;
-  await store.saveProgress(PROG);
-  document.querySelectorAll("[data-xp]").forEach(e=>e.textContent=PROG.xp);
-  if(passed) confetti();
-  $("#exWrap").innerHTML=`
-    <div class="finish">
-      <div class="badge">${passed
-        ? `<svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg>`
-        : `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M1 4v6h6M3.5 9a9 9 0 1 1 .5 6"/></svg>`}</div>
-      <h2>${passed?"Niveau réussi":"Presque !"}</h2>
-      <p>${passed?"Tu débloques le niveau suivant.":"Réessaie pour atteindre 60% et débloquer la suite."}</p>
-      <div class="reward"><div class="r xp"><div class="n">+${xpGain}</div><div class="l">XP</div></div><div class="r ac"><div class="n">${acc}%</div><div class="l">précision</div></div></div>
-      <div style="display:flex;gap:10px;justify-content:center">
-        <button class="btn btn-ghost" onclick="startLevel('${SESS.songId}','${SESS.key}')">Recommencer</button>
-        <button class="btn btn-primary" onclick="openLevels('${SESS.songId}')">Continuer</button>
+function injectLoginModal(){
+  if(document.getElementById("loginBg")) return;
+  const d=document.createElement("div");
+  d.innerHTML=`
+  <div class="modal-bg" id="loginBg">
+    <div class="modal" style="max-width:380px">
+      <h3>Connexion</h3>
+      <div class="lead">Accès au back office.</div>
+      <div class="field"><label>Email</label><input id="loginEmail" type="email" autocomplete="username"></div>
+      <div class="field"><label>Mot de passe</label><input id="loginPw" type="password" autocomplete="current-password"></div>
+      <div id="loginErr" style="color:var(--red);font-size:.82rem;min-height:18px;margin-bottom:4px"></div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" id="loginCancel">Annuler</button>
+        <button class="btn btn-primary" id="loginGo">Se connecter</button>
       </div>
-    </div>`;
+    </div>
+  </div>`;
+  document.body.appendChild(d.firstElementChild);
+  const close=()=>document.getElementById("loginBg").classList.remove("open");
+  document.getElementById("loginCancel").onclick=close;
+  const go=async()=>{
+    const e=document.getElementById("loginEmail").value.trim();
+    const p=document.getElementById("loginPw").value;
+    const err=document.getElementById("loginErr"); err.textContent="";
+    try{ await R.login(e,p); close(); document.getElementById("loginPw").value=""; }
+    catch(ex){ err.textContent="Identifiants incorrects."; }
+  };
+  document.getElementById("loginGo").onclick=go;
+  document.getElementById("loginPw").addEventListener("keydown",ev=>{ if(ev.key==="Enter")go(); });
 }
+R.openLogin = function(){ injectLoginModal(); document.getElementById("loginBg").classList.add("open"); setTimeout(()=>document.getElementById("loginEmail").focus(),50); };
 
-function confetti(){
-  const c=document.createElement("div"); c.className="confetti"; document.body.appendChild(c);
-  const cols=["#6ea8ff","#b89bff","#7ef0b0","#aecbff"];
-  for(let i=0;i<70;i++){ const p=document.createElement("i"); p.style.left=Math.random()*100+"%"; p.style.background=cols[i%cols.length]; p.style.animationDuration=(1.6+Math.random()*1.6)+"s"; p.style.animationDelay=(Math.random()*.4)+"s"; c.appendChild(p); }
-  setTimeout(()=>c.remove(),3500);
-}
+/* bouton de connexion dans la barre (slot #authSlot) */
+R.mountAuthButton = function(isAdmin){
+  const slot=document.getElementById("authSlot"); if(!slot) return;
+  injectLoginModal();
+  const render=(u)=>{
+    if(u){
+      slot.innerHTML = isAdmin
+        ? `<button class="btn btn-sm btn-ghost" id="logoutBtn">Déconnexion</button>`
+        : `<a class="btn btn-sm" href="admin.html">Back office</a><button class="btn btn-sm btn-ghost" id="logoutBtn">Déconnexion</button>`;
+      const lo=slot.querySelector("#logoutBtn"); if(lo) lo.onclick=()=>R.logout();
+    }else{
+      if(!R.AUTH_ENABLED && !isAdmin){ slot.innerHTML=`<a class="btn btn-sm" href="admin.html">Back office</a>`; return; }
+      slot.innerHTML = isAdmin ? "" : `<button class="btn btn-sm" id="loginBtn">Connexion</button>`;
+      const li=slot.querySelector("#loginBtn"); if(li) li.onclick=R.openLogin;
+    }
+  };
+  R.onAuth(render);
+};
 
-load();
-</script>
-</body>
-</html>
+/* protège la page admin : n'appelle onAllowed() qu'une fois connecté */
+R.guardAdmin = function(onAllowed){
+  if(!R.AUTH_ENABLED){ onAllowed(); return; }   // mode local : pas de barrière
+  injectLoginModal();
+  let started=false;
+  R.onAuth(u=>{
+    const lock=document.getElementById("adminLock"), content=document.getElementById("adminContent");
+    if(u){
+      if(lock) lock.style.display="none";
+      if(content) content.style.display="";
+      if(!started){ started=true; onAllowed(); }
+    }else{
+      if(content) content.style.display="none";
+      if(lock) lock.style.display="flex";
+    }
+  });
+};
+
+/* ---- 5. MOTEUR DE NIVEAUX -------------------------------------- */
+R.lines = function(s){
+  const pt=(s.pt||"").split("\n").map(x=>x.trim()).filter(Boolean);
+  const fr=(s.fr||"").split("\n").map(x=>x.trim()).filter(Boolean);
+  const n=Math.min(pt.length,fr.length);
+  return Array.from({length:n},(_,i)=>({pt:pt[i],fr:fr[i]}));
+};
+R.buildLevels = function(s){
+  const lv=[]; const hasPairs=(s.pairs?.length||0)>=2; const ln=R.lines(s); const hasLines=ln.length>=1;
+  if(hasPairs){
+    lv.push({key:"flash", name:"Découverte", desc:"Cartes de vocabulaire", type:"flash"});
+    lv.push({key:"mcq",   name:"Reconnaître", desc:"Trouve la traduction", type:"mcq"});
+    lv.push({key:"match", name:"Associer",   desc:"Relie les paires", type:"match"});
+    lv.push({key:"write", name:"Écrire",     desc:"Tape la traduction", type:"write"});
+  }
+  if(hasLines && (s.pairs?.length||0)>=1){
+    if(ln.some(l=>l.pt.split(/\s+/).length>=2)) lv.push({key:"build", name:"Phrases", desc:"Reconstruis le vers", type:"build"});
+    if(hasPairs) lv.push({key:"cloze", name:"Texte à trous", desc:"Complète le vers", type:"cloze"});
+    lv.push({key:"master", name:"Maîtrise", desc:"Le vers en entier", type:"master"});
+  }
+  return lv;
+};
+R.songProgressPct = function(s, prog){
+  const lv=R.buildLevels(s); if(!lv.length) return 0;
+  const done=(prog.songs[s.id]?.done)||[];
+  return Math.round(done.filter(k=>lv.some(l=>l.key===k)).length / lv.length * 100);
+};
+
+/* ---- 6. TOPBAR (XP + lien actif) ------------------------------- */
+R.mountChrome = async function(active){
+  const link=document.querySelector(`.nav a[data-page="${active}"]`);
+  if(link) link.classList.add("on");
+  try{
+    const store=await R.getStore();
+    const p=await store.getProgress();
+    document.querySelectorAll("[data-xp]").forEach(e=>e.textContent=p.xp||0);
+  }catch(e){}
+};
+
+window.R = R;
