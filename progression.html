@@ -22,7 +22,7 @@
 </header>
 
 <main class="shell">
-  <div class="section-head"><div><h2>Ta progression</h2><div class="sub">Adrien · português</div></div></div>
+  <div class="section-head"><div><h2><span class="live-dot"></span>Ta progression</h2><div class="sub">ton parcours, langue par langue</div></div></div>
 
   <div class="stats stagger">
     <div class="stat"><div class="n" id="stXp">0</div><div class="l">XP total</div></div>
@@ -43,40 +43,47 @@ function ring(pct){
   return `<div class="ring"><svg viewBox="0 0 58 58"><circle cx="29" cy="29" r="${r}" fill="none" stroke="var(--surface-3)" stroke-width="5"/><circle cx="29" cy="29" r="${r}" fill="none" stroke="var(--blue)" stroke-width="5" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${off}" style="transition:stroke-dashoffset 1s var(--ease)"/></svg>${pct}%</div>`;
 }
 
-(async function(){
-  R.mountAuthButton(false); await R.mountChrome("prog");
-  const store=await R.getStore();
-  const songs=await store.getSongs();
-  const prog=await store.getProgress();
+(function(){
+  R.mountAuthButton();
+  R.guard("any", async (profile)=>{
+    await R.mountChrome("prog");
+    const store=await R.getStore();
+    const all=await store.getSongs();
+    const lang=(profile && profile.lang)||"pt";
+    const songs=all.filter(s=>(s.lang||"pt")===lang);
+    const prog=await store.getProgress(R.PROGRESS_ID);
 
-  let totalLevels=0, started=0, sumPct=0;
-  songs.forEach(s=>{
-    const done=(prog.songs[s.id]?.done)||[];
-    totalLevels+=done.length;
-    if(done.length) started++;
-    sumPct+=R.songProgressPct(s,prog);
+    document.querySelector(".section-head .sub").textContent="ton parcours en "+R.langLabel(lang).toLowerCase();
+
+    let totalLevels=0, started=0, sumPct=0;
+    songs.forEach(s=>{
+      const done=(prog.songs[s.id]?.done)||[];
+      totalLevels+=done.length;
+      if(done.length) started++;
+      sumPct+=R.songProgressPct(s,prog);
+    });
+    $("#stXp").textContent=prog.xp||0;
+    $("#stLevels").textContent=totalLevels;
+    $("#stSongs").textContent=started;
+    $("#stAvg").textContent=(songs.length?Math.round(sumPct/songs.length):0)+"%";
+
+    const rows=$("#rows");
+    if(!songs.length){ rows.innerHTML=`<div class="empty"><b>Rien à afficher</b>Aucune chanson en ${R.langLabel(lang)} pour l'instant.</div>`; return; }
+    rows.className="stagger";
+    rows.innerHTML=songs.map(s=>{
+      const lv=R.buildLevels(s);
+      const done=(prog.songs[s.id]?.done)||[];
+      const pct=R.songProgressPct(s,prog);
+      const chips=lv.map(l=>`<span class="chip ${done.includes(l.key)?'done':''}">${l.name}</span>`).join("");
+      return `<a class="prog-row" href="apprendre.html?song=${s.id}">
+        <div class="left">
+          <div class="nm">${R.esc(s.title)}</div>
+          <div class="lv">${chips||'<span class="chip">aucun niveau — ajoute du contenu</span>'}</div>
+        </div>
+        ${ring(pct)}
+      </a>`;
+    }).join("");
   });
-  $("#stXp").textContent=prog.xp||0;
-  $("#stLevels").textContent=totalLevels;
-  $("#stSongs").textContent=started;
-  $("#stAvg").textContent=(songs.length?Math.round(sumPct/songs.length):0)+"%";
-
-  const rows=$("#rows");
-  if(!songs.length){ rows.innerHTML=`<div class="empty"><b>Rien à afficher</b>Ajoute une chanson et commence à apprendre.</div>`; return; }
-  rows.className="stagger";
-  rows.innerHTML=songs.map(s=>{
-    const lv=R.buildLevels(s);
-    const done=(prog.songs[s.id]?.done)||[];
-    const pct=R.songProgressPct(s,prog);
-    const chips=lv.map(l=>`<span class="chip ${done.includes(l.key)?'done':''}">${l.name}</span>`).join("");
-    return `<a class="prog-row" href="apprendre.html?song=${s.id}">
-      <div class="left">
-        <div class="nm">${R.esc(s.title)}</div>
-        <div class="lv">${chips||'<span class="chip">aucun niveau — ajoute du contenu</span>'}</div>
-      </div>
-      ${ring(pct)}
-    </a>`;
-  }).join("");
 })();
 </script>
 </body>
