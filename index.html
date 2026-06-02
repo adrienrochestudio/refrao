@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>refrão — accueil</title>
+<title>refrão — apprendre le portugais avec la musique</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -15,55 +15,39 @@
 <header class="topbar">
   <a class="brand" href="index.html"><span class="dot"></span><b>refrão</b></a>
   <nav class="nav">
-    <a href="index.html" data-page="home">Accueil</a>
     <a href="apprendre.html" data-page="learn">Apprendre</a>
     <a href="progression.html" data-page="prog">Progression</a>
   </nav>
-  <div class="xp-pill"><span class="lbl">XP</span><b data-xp>0</b></div>
+  <div id="authSlot" style="display:flex;gap:8px;align-items:center"></div>
 </header>
 
 <main class="shell">
-  <div class="hero">
+  <div class="landing">
     <div class="kicker" id="greet">olá, adrien</div>
     <h1>Apprends le portugais<br>avec <span class="em">la musique</span></h1>
-    <p>Choisis une chanson et progresse niveau par niveau — vocabulaire, phrases, texte à trous — jusqu'à connaître le morceau par cœur.</p>
-  </div>
+    <p class="lead-sub">Choisis une chanson et grimpe les niveaux — du vocabulaire jusqu'à la chanson entière, par cœur.</p>
 
-  <div class="cards stagger">
-    <a class="bigcard" style="--accent:var(--purple);--accent-glow:var(--purple-glow)" href="apprendre.html">
-      <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg></div>
-      <h3>Apprendre</h3>
-      <p>Choisis une chanson et grimpe les niveaux : vocabulaire, phrases, texte à trous, maîtrise.</p>
-      <span class="go">Commencer <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+    <a href="apprendre.html" class="cta">
+      Commencer à apprendre
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
     </a>
-    <a class="bigcard" style="--accent:var(--green);--accent-glow:var(--green-glow)" href="progression.html">
-      <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 15l4-4 3 3 5-6"/></svg></div>
-      <h3>Progression</h3>
-      <p>Suis ton XP, ta progression par chanson et les niveaux déjà validés.</p>
-      <span class="go">Voir mes progrès <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-    </a>
-  </div>
-
-  <div class="stats stagger">
-    <div class="stat"><div class="n" id="stSongs">0</div><div class="l">chansons</div></div>
-    <div class="stat"><div class="n" id="stWords">0</div><div class="l">mots reliés</div></div>
-    <div class="stat"><div class="n" id="stProg">0%</div><div class="l">progression moyenne</div></div>
+    <div class="cta-sub" id="entice"></div>
   </div>
 </main>
 
 <script src="core.js"></script>
 <script>
 (async function(){
-  await R.mountChrome("home");
+  R.mountAuthButton(false);
+  R.mountChrome("home");
   const h=new Date().getHours();
   document.getElementById("greet").textContent = (h<12?"bom dia":h<18?"boa tarde":"boa noite")+", adrien";
-  const store=await R.getStore();
-  const songs=await store.getSongs();
-  const prog=await store.getProgress();
-  document.getElementById("stSongs").textContent=songs.length;
-  document.getElementById("stWords").textContent=songs.reduce((n,s)=>n+(s.pairs?.length||0),0);
-  let avg=0; if(songs.length) avg=Math.round(songs.reduce((n,s)=>n+R.songProgressPct(s,prog),0)/songs.length);
-  document.getElementById("stProg").textContent=avg+"%";
+  try{
+    const store=await R.getStore();
+    const songs=await store.getSongs();
+    const n=songs.length;
+    document.getElementById("entice").textContent = n ? (n+" chanson"+(n>1?"s":"")+" t'attend"+(n>1?"ent":"")) : "";
+  }catch(e){}
 })();
 </script>
 </body>
