@@ -1,62 +1,57 @@
 # refrão — apprendre le portugais avec la musique
 
-Site statique multi-pages, sans login (usage perso). Aucun build : que des fichiers à déposer sur GitHub.
+Site statique multi-pages. Interface publique d'un côté, back office protégé par connexion de l'autre. Aucun build : que des fichiers à déposer sur GitHub.
 
 ## Les fichiers
 
 | Fichier | Rôle |
 |---|---|
-| `index.html` | Accueil |
-| `ajout.html` | Banque de musiques (ajout / édition / liage des mots) |
-| `apprendre.html` | Apprentissage (niveaux + exercices) |
-| `progression.html` | Suivi de la progression et du XP |
-| `style.css` | Tout le design (couleurs, animations) — un seul endroit à éditer |
-| `core.js` | Données partagées + **config Firebase** + moteur de niveaux |
+| `index.html` | Accueil : un seul appel à l'action « Apprendre » (public) |
+| `apprendre.html` | Apprentissage : niveaux + exercices (public) |
+| `progression.html` | Progression et XP (public) |
+| `admin.html` | **Back office** protégé par login : gestion des chansons, import Deezer, liage des mots |
+| `style.css` | Tout le design |
+| `core.js` | Données partagées + **config Firebase** + authentification + moteur de niveaux |
 
-Pour modifier une section, tu ouvres son fichier. Pour changer l'apparence : `style.css`. Pour Firebase : `core.js`.
+Le bouton **Connexion** en haut à droite ouvre la connexion. Une fois connecté, un bouton **Back office** apparaît (et **Déconnexion**). Le back office est aussi accessible directement via `…/admin.html`, mais il reste verrouillé tant que tu n'es pas connecté.
 
-## Tester en local
+## Authentification (Firebase Auth) — à activer une fois
 
-Sans Firebase, l'app utilise le **stockage local du navigateur** (localStorage) : tes chansons et ta progression sont conservées entre les pages, sur ton ordinateur.
+1. console.firebase.google.com → ton projet → **Authentication → Get started**.
+2. Onglet **Sign-in method** → active **Email/Password**.
+3. Onglet **Users → Add user** → saisis **ton email** et **un mot de passe**. C'est ton identifiant de connexion (il n'y a pas d'inscription dans l'app, juste la connexion).
 
-- Le plus simple : pousse sur GitHub Pages (voir plus bas) et utilise directement l'URL.
-- En local, lance un petit serveur depuis le dossier (sinon le navigateur bloque le partage entre fichiers) :
-  ```
-  python3 -m http.server 8000
-  ```
-  puis ouvre http://localhost:8000
+## Règles Firestore
 
-## Brancher Firebase (Firestore)
+Lecture publique (pour que l'apprentissage fonctionne sans login), mais **seules les écritures de chansons exigent d'être connecté**. La progression reste libre.
 
-1. console.firebase.google.com → ton projet → **Build → Firestore Database → Créer une base** (mode production).
-2. **Paramètres du projet → Vos applications → app Web** : copie l'objet `firebaseConfig`.
-3. Ouvre `core.js`, remplace le bloc `R.FIREBASE_CONFIG` par tes valeurs. Dès que `apiKey` ne contient plus « COLLE », l'app passe automatiquement de localStorage à Firestore.
-4. **Firestore → Règles** → comme c'est un usage perso sans login, colle puis **Publier** :
-   ```
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /{document=**} { allow read, write: if true; }
-     }
-   }
-   ```
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /songs/{id}    { allow read: if true; allow write: if request.auth != null; }
+    match /progress/{id} { allow read, write: if true; }
+  }
+}
+```
 
-> La clé API Web est publique par nature : c'est normal de la voir dans `core.js`, ce sont les règles Firestore qui protègent les données.
-> Important : la connexion Firebase ne fonctionne qu'en `https://` (donc sur GitHub Pages), pas en double-clic `file://`.
+> La clé API Web dans `core.js` est publique par nature ; ce sont ces règles + la connexion qui protègent l'ajout/modification de chansons. Firebase (auth + base) ne fonctionne qu'en `https://`.
 
 ### Données Firestore
-- Collection `songs` : un document par chanson `{ title, artist, deezer, pt, fr, pairs:[{pt,fr}] }`
+- Collection `songs` : `{ title, artist, deezer, cover, preview, pt, fr, pairs:[{pt,fr}] }`
 - Document `progress/main` : `{ xp, songs:{ [songId]:{ done:[clésNiveaux] } } }`
 
+## Tester en local
+Sans connexion Firebase (mode local), l'app utilise le stockage du navigateur et le back office n'est pas verrouillé (pratique pour le dev). Lance un serveur depuis le dossier :
+```
+python3 -m http.server 8000
+```
+puis http://localhost:8000
+
+## Import Deezer
+Dans le back office : colle un lien de piste Deezer (`.../track/123...`) puis « Récupérer » — titre, artiste, pochette et extrait de 30 s se remplissent (API publique gratuite).
+
 ## Mettre en ligne (GitHub Pages)
-
-1. Crée un dépôt, dépose **tous les fichiers à la racine** (pas dans un sous-dossier), commit + push.
-2. **Settings → Pages → Source : Deploy from a branch → `main` / `/root`** → Save.
+1. Dépose **tous les fichiers à la racine** du dépôt, commit + push.
+2. Settings → Pages → Source : Deploy from a branch → `main` / `/root` → Save.
 3. ~1 min plus tard : `https://<ton-pseudo>.github.io/<dépôt>/`.
-
-À chaque modif, tu remplaces le fichier concerné dans le dépôt et le site se met à jour tout seul.
-
-## Idées pour la suite
-- Lecteur d'extrait Deezer intégré
-- Révision espacée des mots ratés
-- Mode « par cœur » qui efface progressivement les paroles
