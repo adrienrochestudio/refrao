@@ -111,6 +111,27 @@ a{color:inherit;text-decoration:none}
 @keyframes up{to{opacity:1;transform:none}}
 
 /* ----- home ----- */
+.landing{text-align:center;padding:clamp(40px,12vh,120px) 0 60px;display:flex;flex-direction:column;align-items:center}
+.landing .kicker{font-family:var(--font-mono);font-size:.74rem;letter-spacing:.28em;text-transform:uppercase;color:var(--blue);opacity:.8;margin-bottom:20px}
+.landing h1{font-family:var(--font-display);font-weight:800;font-size:clamp(2.8rem,8vw,5.2rem);line-height:.96;letter-spacing:-.035em}
+.landing h1 .em{background:linear-gradient(110deg,var(--blue-soft),var(--blue));-webkit-background-clip:text;background-clip:text;color:transparent}
+.landing .lead-sub{color:var(--text-dim);max-width:440px;margin:22px auto 0;font-size:1.08rem}
+.cta{
+  margin-top:40px;display:inline-flex;align-items:center;gap:12px;
+  font-family:var(--font-display);font-weight:700;font-size:1.15rem;letter-spacing:-.01em;
+  padding:18px 32px;border-radius:16px;color:#08111f;
+  background:linear-gradient(180deg,var(--blue),#5790ee);
+  box-shadow:0 14px 40px -12px var(--blue-glow);
+  transition:transform .3s var(--ease), box-shadow .3s var(--ease);
+  animation:ctaPulse 3.4s var(--ease) infinite;
+}
+.cta:hover{transform:translateY(-4px) scale(1.02);box-shadow:0 20px 50px -10px var(--blue-glow)}
+.cta:hover svg{transform:translateX(5px)}
+.cta svg{transition:transform .35s var(--ease)}
+@keyframes ctaPulse{0%,100%{box-shadow:0 14px 40px -12px var(--blue-glow)}50%{box-shadow:0 14px 54px -8px var(--blue-glow)}}
+.cta-sub{margin-top:18px;font-family:var(--font-mono);font-size:.8rem;color:var(--text-mute)}
+
+/* ----- home (anciennes cartes, encore utilisées ailleurs) ----- */
 .hero{text-align:center;padding:54px 0 40px}
 .hero .kicker{font-family:var(--font-mono);font-size:.74rem;letter-spacing:.28em;text-transform:uppercase;color:var(--blue);opacity:.8;margin-bottom:18px}
 .hero h1{font-family:var(--font-display);font-weight:800;font-size:clamp(2.6rem,7vw,4.6rem);line-height:.98;letter-spacing:-.035em}
@@ -326,3 +347,10 @@ a{color:inherit;text-decoration:none}
 .prog-row .ring{flex-shrink:0;width:58px;height:58px;position:relative;display:grid;place-items:center;font-family:var(--font-mono);font-weight:700;font-size:.85rem;color:var(--blue-soft)}
 .prog-row .ring svg{position:absolute;inset:0;transform:rotate(-90deg)}
 .hidden{display:none!important}
+
+/* ----- écran de verrouillage back office ----- */
+.admin-lock{display:flex;align-items:center;justify-content:center;min-height:60vh}
+.admin-lock .lock-card{text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:46px 40px;max-width:380px}
+.admin-lock .lock-card svg{color:var(--text-mute);margin-bottom:14px}
+.admin-lock .lock-card h2{font-family:var(--font-display);font-weight:700;font-size:1.6rem;letter-spacing:-.02em}
+.admin-lock .lock-card p{color:var(--text-dim);font-size:.9rem;margin:8px 0 24px}
