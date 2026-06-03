@@ -24,6 +24,13 @@ R.LANGS = [
 ];
 R.langLabel = c => (R.LANGS.find(l=>l.code===c)||{label:c}).label;
 
+/* ---- référentiel CEFR / bandes (note §3) ---- */
+R.CEFR = ["A1","A2","B1","B2","C1","C2"];
+R.BANDS = {1:"Découverte", 2:"Intermédiaire", 3:"Avancé"};
+R.bandOf = cefr => { const i=R.CEFR.indexOf(cefr); return i<2?1 : i<4?2 : 3; };          // A1-A2=1, B1-B2=2, C1-C2=3
+R.bandName = b => R.BANDS[b] || "Découverte";
+R.PLACEMENT = { debutant:"A2", intermediaire:"B1", avance:"C1" };                          // auto-placement §3.2.b
+
 /* ---- utilitaires ---- */
 R.esc = s => (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 R.uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -84,6 +91,8 @@ class LocalStore{
   async setCohort(c,d){ localStorage.setItem("refrao_cohort_"+c, JSON.stringify(d)); }
   async deleteCohort(c){ localStorage.removeItem("refrao_cohort_"+c); }
   async listLearners(){ return []; }
+  async getCards(uid){ return JSON.parse(localStorage.getItem("refrao_cards_"+uid)||'{"cards":{}}'); }
+  async saveCards(uid,o){ localStorage.setItem("refrao_cards_"+uid, JSON.stringify(o)); }
 }
 class FirebaseStore{
   constructor(db,f){ this.db=db; this.f=f; }
@@ -103,6 +112,8 @@ class FirebaseStore{
     const q=this.f.query(this._c("users"), this.f.where("cohortId","==",code));
     const s=await this.f.getDocs(q); return s.docs.map(d=>({uid:d.id,...d.data()}));
   }
+  async getCards(uid){ const d=await this.f.getDoc(this._d("cards",uid)); return d.exists()?d.data():{cards:{}}; }
+  async saveCards(uid,o){ await this.f.setDoc(this._d("cards",uid), o); }
 }
 
 /* ---- app Firebase partagée ---- */
@@ -200,7 +211,8 @@ R.signup = async function(opts){
       if(!c) throw new Error("Ce code de cohorte n'existe pas.");
     }
     const cred=await m.createUserWithEmailAndPassword(auth, opts.email, opts.pw);
-    await store.setUser(cred.user.uid, {role:"learner", email:opts.email, lang:opts.lang||"en", cohortId:code, createdAt:Date.now()});
+    const cefr=opts.cefr||"A2";
+    await store.setUser(cred.user.uid, {role:"learner", email:opts.email, lang:opts.lang||"en", cohortId:code, cefr, band:R.bandOf(cefr), streak:{count:0,last:null,freezes:2}, createdAt:Date.now()});
   }
   return {role:opts.role};
 };
@@ -218,7 +230,8 @@ R.completeProfile = async function(opts){
   }else{
     let code="";
     if(opts.cohortCode && opts.cohortCode.trim()){ code=R.slug(opts.cohortCode); if(!await store.getCohort(code)) throw new Error("Ce code de cohorte n'existe pas."); }
-    await store.setUser(_user.uid, {role:"learner", email:_user.email, lang:opts.lang||"en", cohortId:code, createdAt:Date.now()});
+    const cefr=opts.cefr||"A2";
+    await store.setUser(_user.uid, {role:"learner", email:_user.email, lang:opts.lang||"en", cohortId:code, cefr, band:R.bandOf(cefr), streak:{count:0,last:null,freezes:2}, createdAt:Date.now()});
   }
   _profile=await store.getUser(_user.uid);
   return {role:opts.role};
@@ -287,6 +300,66 @@ R.mountChrome = function(active){
 /* ============================================================
    MOTEUR DE NIVEAUX
    ============================================================ */
+/* niveau d'un apprenant (override gestionnaire §3.2.b) */
+R.setLearnerLevel = async function(uid, cefr){
+  const store=await R.getStore();
+  await store.setUser(uid, {cefr, band:R.bandOf(cefr)});
+};
+
+/* ---- structure refrain / couplets (note §2, §4.5) ---- */
+R.sections = function(s){
+  if(Array.isArray(s.sections) && s.sections.length) return s.sections;
+  const ln=R.lines(s);                       // repli : ancienne chanson à plat = un seul refrain
+  return ln.length ? [{type:"refrain", lines:ln}] : [];
+};
+/* détection auto à valider : blocs séparés par lignes vides ; bloc répété = refrain */
+R.autoSections = function(ptText, frText){
+  const split = t => t.split(/\n\s*\n/).map(b=>b.split("\n").map(x=>x.trim()).filter(Boolean)).filter(b=>b.length);
+  let blocks = split(ptText||"");
+  if(!blocks.length){ const all=(ptText||"").split("\n").map(x=>x.trim()).filter(Boolean); blocks = all.length?[all]:[]; }
+  const frAll = (frText||"").split("\n").map(x=>x.trim()).filter(Boolean);
+  const key = b => b.map(R.norm).join(" | ");
+  const counts={}; blocks.forEach(b=>{const k=key(b); counts[k]=(counts[k]||0)+1;});
+  let refrainKey=null, max=1;
+  for(const k in counts){ if(counts[k]>max){ max=counts[k]; refrainKey=k; } }
+  let cur=0; const out=[];
+  blocks.forEach(b=>{
+    const isR = refrainKey && key(b)===refrainKey;
+    const lines=b.map(pt=>{ const fr=frAll[cur]||""; cur++; return {pt, fr}; });
+    out.push({type:isR?"refrain":"couplet", lines});
+  });
+  if(!refrainKey && out.length) out[0].type="refrain";   // sinon, 1er bloc = refrain par défaut
+  return out;
+};
+R.refrain = s => R.sections(s).find(x=>x.type==="refrain") || R.sections(s)[0] || null;
+R.verses  = s => R.sections(s).filter(x=>x.type==="couplet");
+
+/* ---- espacement par paliers (note §5.3.b) ---- */
+R.nextDue = function(streak, now){
+  now=now||Date.now(); const H=3600e3, D=864e5;
+  if(streak<=0) return now;          // raté : même session
+  if(streak===1) return now + 4*H;   // plus tard le même jour
+  if(streak===2) return now + 1*D;
+  if(streak===3) return now + 3*D;   // maîtrisée
+  return now + 7*D;                   // entretien
+};
+
+/* ---- streak avec gel (note §7.a) ---- */
+R.touchStreak = async function(){
+  if(!_profile) return null;
+  const ds = new Date().toISOString().slice(0,10);
+  const st = _profile.streak || {count:0,last:null,freezes:2};
+  if(st.last===ds) return st;
+  const y = new Date(Date.now()-864e5).toISOString().slice(0,10);
+  if(st.last===y) st.count=(st.count||0)+1;
+  else if(st.last){ if((st.freezes||0)>0){ st.freezes--; st.count=(st.count||0)+1; } else st.count=1; }
+  else st.count=1;
+  st.last=ds; _profile.streak=st;
+  const store=await R.getStore();
+  if(R.AUTH_ENABLED && _user) await store.setUser(_user.uid, {streak:st});
+  return st;
+};
+
 R.lines = function(s){
   const pt=(s.pt||"").split("\n").map(x=>x.trim()).filter(Boolean);
   const fr=(s.fr||"").split("\n").map(x=>x.trim()).filter(Boolean);

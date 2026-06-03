@@ -34,8 +34,8 @@
 
     <div class="stats stagger" style="margin-top:48px;max-width:560px;width:100%">
       <div class="stat"><div class="n" id="stSongs">0</div><div class="l">chansons</div></div>
-      <div class="stat"><div class="n" id="stLearned">0</div><div class="l">chansons apprises</div></div>
-      <div class="stat"><div class="n" id="stXp">0</div><div class="l">XP</div></div>
+      <div class="stat"><div class="n" id="stLearned">0</div><div class="l">chansons complétées</div></div>
+      <div class="stat"><div class="n" id="stXp">0</div><div class="l">bonnes réponses</div></div>
     </div>
   </div>
 </main>
@@ -72,8 +72,8 @@
       if(u && p && p.lang) scope=songs.filter(s=>(s.lang||"pt")===p.lang);
       const prog=await store.getProgress(R.PROGRESS_ID);
       document.getElementById("stSongs").textContent=scope.length;
-      document.getElementById("stLearned").textContent=scope.filter(s=>R.songProgressPct(s,prog)===100).length;
-      document.getElementById("stXp").textContent=prog.xp||0;
+      document.getElementById("stLearned").textContent=Object.values(prog.songs||{}).filter(x=>x.completed).length;
+      document.getElementById("stXp").textContent=(prog.recent||[]).filter(Boolean).length;
     }catch(e){}
   });
 })();

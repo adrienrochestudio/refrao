@@ -50,6 +50,16 @@
           <select id="suLang"></select>
         </div>
 
+        <div class="field" id="fPlace">
+          <label>Comment situes-tu ton niveau ?</label>
+          <div class="seg">
+            <button class="seg-opt on" data-place="debutant" type="button">Débutant</button>
+            <button class="seg-opt" data-place="intermediaire" type="button">Intermédiaire</button>
+            <button class="seg-opt" data-place="avance" type="button">Avancé</button>
+          </div>
+          <div class="hint-small">On ajuste ensuite automatiquement selon tes résultats.</div>
+        </div>
+
         <div class="field" id="fJoin">
           <label>Code de cohorte <span style="color:var(--text-mute);text-transform:none;letter-spacing:0">(facultatif)</span></label>
           <input id="suJoin" placeholder="si ton enseignant t'en a donné un">
@@ -106,16 +116,20 @@ function showComplete(){
 }
 
 // rôle
-let role="learner";
-document.querySelectorAll(".seg-opt").forEach(b=>{
+let role="learner", place="debutant";
+document.querySelectorAll(".seg-opt[data-role]").forEach(b=>{
   b.onclick=()=>{
-    document.querySelectorAll(".seg-opt").forEach(x=>x.classList.remove("on"));
+    document.querySelectorAll(".seg-opt[data-role]").forEach(x=>x.classList.remove("on"));
     b.classList.add("on"); role=b.dataset.role;
     const mgr=role==="manager";
     $("#fJoin").classList.toggle("hidden",mgr);
     $("#fCohort").classList.toggle("hidden",!mgr);
+    $("#fPlace").classList.toggle("hidden",mgr);
     $("#fLang").querySelector("label").textContent = mgr? "Langue par défaut" : "Langue à apprendre";
   };
+});
+document.querySelectorAll(".seg-opt[data-place]").forEach(b=>{
+  b.onclick=()=>{ document.querySelectorAll(".seg-opt[data-place]").forEach(x=>x.classList.remove("on")); b.classList.add("on"); place=b.dataset.place; };
 });
 
 // login
@@ -131,6 +145,7 @@ $("#suGo").onclick=async()=>{
   $("#suErr").textContent="";
   const lang=$("#suLang").value;
   const opts={role, lang};
+  if(role==="learner") opts.cefr=R.PLACEMENT[place]||"A2";
   opts.cohortCode = role==="manager" ? $("#suCohort").value : $("#suJoin").value;
   try{
     let res;

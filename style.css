@@ -436,3 +436,97 @@ a{color:inherit;text-decoration:none}
 .admin-lock .lock-card svg{color:var(--text-mute);margin-bottom:14px}
 .admin-lock .lock-card h2{font-family:var(--font-display);font-weight:700;font-size:1.6rem;letter-spacing:-.02em}
 .admin-lock .lock-card p{color:var(--text-dim);font-size:.9rem;margin:8px 0 24px}
+
+/* ============================================================
+   Système d'apprentissage v2 (note pédagogique)
+   ============================================================ */
+.hint-small{font-size:.78rem;color:var(--text-mute);margin-top:6px}
+
+/* badges CEFR / bandes */
+.cefr-badge{display:inline-flex;align-items:center;font-family:var(--font-mono);font-weight:700;font-size:.7rem;letter-spacing:.04em;padding:3px 8px;border-radius:7px;border:1px solid}
+.cefr-badge.b1{color:var(--green);border-color:rgba(126,240,176,.4);background:rgba(126,240,176,.1)}
+.cefr-badge.b2{color:var(--blue-soft);border-color:rgba(128,183,255,.4);background:rgba(128,183,255,.1)}
+.cefr-badge.b3{color:var(--purple);border-color:rgba(184,155,255,.4);background:rgba(184,155,255,.1)}
+.cefr-badge.big{font-size:.92rem;padding:5px 11px}
+.cefr-inline{font-family:var(--font-mono);font-size:.7rem;color:var(--text-mute);border:1px solid var(--border);border-radius:5px;padding:1px 5px;margin-left:6px}
+.band-tag{font-family:var(--font-mono);font-size:.68rem;color:var(--text-mute);margin-left:8px}
+
+/* carte révision du jour */
+.review-card{display:flex;justify-content:space-between;align-items:center;gap:18px;background:linear-gradient(180deg,var(--surface),var(--surface-2));border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px;margin-bottom:26px}
+.rc-tag{display:flex;align-items:center;gap:8px;font-family:var(--font-display);font-weight:700;font-size:1.1rem}
+.rc-sub{color:var(--text-dim);font-size:.9rem;margin-top:5px;max-width:46ch}
+.rc-stats{display:flex;gap:16px;margin-top:12px;font-size:.82rem;color:var(--text-mute)}
+.rc-stats b{color:var(--blue-soft);font-family:var(--font-mono)}
+
+/* carte chanson : tags */
+.song-card{position:relative}
+.song-card .cefr-badge{position:absolute;top:14px;right:14px}
+.song-card .above{font-size:.72rem;color:var(--purple);margin-top:4px}
+.song-card .done-tag{font-size:.72rem;color:var(--green);margin-top:4px;font-weight:600}
+
+/* parcours (étapes d'une chanson) */
+.song-head .row{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.song-head h2{font-family:var(--font-display);font-weight:800;font-size:1.7rem}
+.song-head .art{color:var(--text-dim);margin-top:2px}
+.parcours{margin-top:22px;display:flex;flex-direction:column;gap:10px}
+.pstep{display:flex;align-items:center;gap:16px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px 18px;transition:.2s var(--ease)}
+.pstep.current{cursor:pointer;border-color:var(--blue);box-shadow:0 0 0 1px var(--blue), 0 12px 30px -16px var(--blue-glow)}
+.pstep.done{cursor:pointer}
+.pstep.locked{opacity:.5}
+.pstep.current:hover,.pstep.done:hover{transform:translateY(-2px)}
+.pbubble{width:42px;height:42px;flex-shrink:0;border-radius:50%;display:grid;place-items:center;background:var(--surface-2);border:1px solid var(--border-2);color:var(--text-dim)}
+.pstep.current .pbubble{background:var(--blue);border-color:var(--blue);color:#0a0a0c}
+.pstep.done .pbubble{background:rgba(126,240,176,.14);border-color:var(--green);color:var(--green)}
+.ptag{font-family:var(--font-mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text-mute)}
+.pname{font-weight:700;font-size:1rem;margin-top:1px}
+.pdesc{font-size:.84rem;color:var(--text-dim);margin-top:1px}
+.complete-banner{display:flex;align-items:center;gap:14px;margin-top:18px;padding:16px 20px;border-radius:16px;background:rgba(128,183,255,.1);border:1px solid rgba(128,183,255,.3);color:var(--blue-soft)}
+.complete-banner.full{background:rgba(126,240,176,.1);border-color:rgba(126,240,176,.35);color:var(--green)}
+.complete-banner b{display:block;font-size:1rem}
+.complete-banner span{display:block;color:var(--text-dim);font-size:.84rem;margin-top:2px}
+.complete-banner svg{flex-shrink:0}
+
+/* compréhension / paroles adaptatives */
+.lyric-card .disc-head{text-align:center;margin-bottom:18px}
+.lyric-card .disc-head h2{font-family:var(--font-display);font-weight:800;font-size:1.6rem;margin-top:6px}
+.lyric-card .disc-head .art{color:var(--text-dim)}
+.disc-note{color:var(--text-mute);font-size:.84rem;margin-top:12px}
+.lyrics{display:flex;flex-direction:column;gap:18px;max-height:46vh;overflow:auto;padding:4px 2px}
+.ly-sec{padding-left:14px;border-left:2px solid var(--border-2)}
+.ly-sec.refrain{border-left-color:var(--blue)}
+.ly-tag{font-family:var(--font-mono);font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-mute);margin-bottom:6px}
+.ly-line{padding:4px 0}
+.ly-line.both{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.ly-line.both .o{color:var(--text)}
+.ly-line.both .t{color:var(--text-dim)}
+.ly-line.reveal{cursor:pointer;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.ly-line.reveal .t.hidden-t::before{content:"révéler";color:var(--text-mute);font-size:.8rem;font-style:italic}
+.ly-line.reveal .t{color:var(--text-dim)}
+.ly-line.words .w{cursor:pointer;border-bottom:1px dotted var(--border-2)}
+.ly-line.words .w:hover{color:var(--blue-soft);border-color:var(--blue)}
+@media(max-width:560px){.ly-line.both,.ly-line.reveal{grid-template-columns:1fr;gap:2px}.ly-line.both .t,.ly-line.reveal .t{font-size:.88rem}}
+
+/* aide traduction (prompt) */
+.fr-help{color:var(--blue-soft)}
+
+/* finish */
+.finish-acts{display:flex;gap:10px;justify-content:center;margin-top:6px}
+.adj-note{color:var(--text-mute);font-size:.78rem;margin-top:14px}
+.reward .r .n{font-family:var(--font-mono)}
+.reflect{margin:18px auto 6px;max-width:380px;text-align:left}
+.reflect label{display:block;font-size:.82rem;color:var(--text-dim);margin-bottom:6px}
+.reflect label span{color:var(--text-mute)}
+.reflect input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;color:var(--text)}
+
+/* éditeur : structure refrain/couplets */
+.struct-panel{display:flex;flex-direction:column;gap:10px}
+.struct-sec{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.struct-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.seg.sm{display:inline-flex;gap:6px}
+.seg.sm .seg-opt{padding:6px 12px;font-size:.78rem}
+.struct-n{font-size:.74rem;color:var(--text-mute);font-family:var(--font-mono)}
+.struct-lines div{font-size:.84rem;color:var(--text);padding:2px 0;display:flex;justify-content:space-between;gap:14px}
+.struct-lines div span{color:var(--text-mute)}
+
+/* tableau cohorte : sélecteur de niveau */
+.lvl-sel{background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:4px 8px;color:var(--text);font-family:var(--font-mono);font-size:.82rem}

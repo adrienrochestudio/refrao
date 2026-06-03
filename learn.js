@@ -1,9 +1,9 @@
 /* ============================================================
    refrão — learn.js
-   Pilotage de la page Apprendre : langue, choix de chanson,
-   aperçu des paroles, carte des niveaux. (Moteur : exercises.js)
+   Pilotage : langue, choix de chanson, parcours d'une chanson (§8),
+   révision quotidienne. Moteur : exercises.js + srs.js
    ============================================================ */
-var S = { songs:[], prog:{xp:0,songs:{}}, store:null, curlang:"pt", profile:null, sess:null };
+var S = { songs:[], prog:{xp:0,songs:{},recent:[]}, store:null, curlang:"pt", profile:null, band:1, sess:null };
 const LANG_COLORS={en:"#80b7ff", pt:"#7ef0b0", es:"#b89bff", de:"#ff9d7a"};
 
 R.mountAuthButton();
@@ -15,11 +15,14 @@ async function init(profile){
   S.store=await R.getStore();
   S.songs=await S.store.getSongs();
   S.prog=await S.store.getProgress(R.PROGRESS_ID);
+  if(!S.prog.recent) S.prog.recent=[];
+  await SRS.load();
   S.curlang=(profile && profile.lang) || "pt";
+  S.band=(profile && profile.band) || 1;
   renderLangPick();
   renderChooser();
   const sid=new URLSearchParams(location.search).get("song");
-  if(sid && S.songs.find(s=>s.id===sid)) openLevels(sid);
+  if(sid && S.songs.find(s=>s.id===sid)) openSong(sid);
 }
 
 function showView(id){
@@ -29,75 +32,120 @@ function showView(id){
 }
 function showChooser(){ renderChooser(); showView("chooser"); }
 function songsForLang(){ return S.songs.filter(s=>(s.lang||"pt")===S.curlang); }
+function songBand(s){ return s.band || R.bandOf(s.cefr||"A2"); }
 
 function renderLangPick(){
   const wrap=document.getElementById("langPick");
   wrap.innerHTML=R.LANGS.map(l=>`<button class="lang-chip${l.code===S.curlang?' on':''}" data-lang="${l.code}" style="--c:${LANG_COLORS[l.code]||'#80b7ff'}">${l.label}</button>`).join("");
-  wrap.querySelectorAll(".lang-chip").forEach(b=>{
-    b.onclick=async()=>{ S.curlang=b.dataset.lang; await R.setLang(S.curlang); renderLangPick(); renderChooser(); };
-  });
+  wrap.querySelectorAll(".lang-chip").forEach(b=>{ b.onclick=async()=>{ S.curlang=b.dataset.lang; await R.setLang(S.curlang); renderLangPick(); renderChooser(); }; });
 }
 
 function renderChooser(){
   const list=document.getElementById("learnList");
-  const songs=songsForLang();
-  if(!songs.length){ list.className=""; list.innerHTML=`<div class="empty"><b>Aucune chanson en ${R.langLabel(S.curlang)}</b>Choisis une autre langue, ou demande à un gestionnaire d'en ajouter.</div>`; return; }
-  list.className="song-grid stagger";
-  list.innerHTML=songs.map(s=>`
-    <div class="song-card" onclick="openLevels('${s.id}')">
+  const due=SRS.due().length, st=SRS.stats();
+  const review=`
+    <div class="review-card">
+      <div class="rc-left">
+        <div class="rc-tag"><span class="live-dot"></span>Révision du jour</div>
+        <div class="rc-sub">${due? due+" carte"+(due>1?"s":"")+" à revoir — on commence par tes points faibles." : "Rien d'urgent. Reviens après une nouvelle leçon."}</div>
+        <div class="rc-stats"><span><b>${st.mastered}</b> maîtrisées</span><span><b>${st.learning}</b> en cours</span>${S.profile&&S.profile.streak?`<span><b>${S.profile.streak.count||0}</b> j. de suite</span>`:""}</div>
+      </div>
+      <button class="btn ${due?'btn-primary':'btn-ghost'}" ${due?"":"disabled"} onclick="startReview()">Réviser</button>
+    </div>`;
+
+  const songs=songsForLang().slice().sort((a,b)=> Math.abs(songBand(a)-S.band)-Math.abs(songBand(b)-S.band) || a.title.localeCompare(b.title));
+  let grid;
+  if(!songs.length){ grid=`<div class="empty"><b>Aucune chanson en ${R.langLabel(S.curlang)}</b>Choisis une autre langue, ou demande à un gestionnaire d'en ajouter.</div>`; }
+  else grid=`<div class="song-grid stagger">`+songs.map(s=>{
+    const b=songBand(s), above=b>S.band;
+    const ps=S.prog.songs[s.id]||{};
+    const pct = R.refrain(s)? SRS.sectionPct(s, R.refrain(s)) : 0;
+    return `<div class="song-card" onclick="openSong('${s.id}')">
+      <div class="cefr-badge b${b}">${R.esc(s.cefr||["","A2","B1","C1"][b])}</div>
       <div class="ttl">${R.esc(s.title)}</div>
       <div class="art">${R.esc(s.artist||"—")}</div>
-      <div class="meta"><span><span class="v">${R.buildLevels(s).length}</span> niveaux</span><span><span class="v">${R.songProgressPct(s,S.prog)}%</span> fait</span></div>
-      <div class="prog"><div class="bar"><i style="width:${R.songProgressPct(s,S.prog)}%"></i></div></div>
-    </div>`).join("");
+      ${above?`<div class="above">un cran au-dessus · i+1</div>`:""}
+      ${ps.completed?`<div class="done-tag">${ps.full?"Maîtrise complète":"Complétée"}</div>`:""}
+      <div class="prog"><div class="bar"><i style="width:${pct}%"></i></div></div>
+    </div>`;
+  }).join("")+`</div>`;
+
+  list.className="";
+  list.innerHTML=review+grid;
 }
 
-function openLevels(id){
-  const s=S.songs.find(x=>x.id===id); if(!s) return;
-  const lv=R.buildLevels(s);
-  const done=(S.prog.songs[id]?.done)||[];
-  let firstLocked=true;
-  const nodes=lv.map((l,i)=>{
-    const isDone=done.includes(l.key);
-    let state="locked"; if(isDone) state="done"; else if(firstLocked){ state="current"; firstLocked=false; }
-    const clk=state!=="locked";
-    return `${i>0?`<div class="connector ${done.includes(lv[i-1].key)?'done':''}"></div>`:""}
-      <div class="node ${state}" ${clk?`onclick="startLevel('${id}','${l.key}')"`:""}>
-        <div class="bubble">${i+1}
-          ${state==="locked"?`<span class="lock"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>`:""}
-          ${state==="done"?`<span class="chk"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></span>`:""}
-        </div>
-        <div class="info"><div class="nm">${l.name}</div><div class="ds">${l.desc}</div></div>
-      </div>`;
-  }).join("");
+/* ---------- parcours d'une chanson (§8) ---------- */
+function openSong(id){
+  const s=S.songs.find(x=>x.id===id); if(!s){ showChooser(); return; }
+  const secs=R.sections(s);
+  if(!secs.length){
+    document.getElementById("songView").innerHTML=`<div class="song-head"><div class="row"><div><h2>${R.esc(s.title)}</h2><div class="art">${R.esc(s.artist||"")}</div></div></div></div><div class="empty"><b>Cette chanson n'a pas encore de paroles</b>Ajoute des paroles et une structure depuis l’espace gestion.</div>`;
+    showView("song"); return;
+  }
+  const ref=R.refrain(s); const refIdx=secs.indexOf(ref);
+  const verses=secs.map((sec,i)=>({sec,i})).filter(x=>x.sec.type==="couplet");
+  const ps=S.prog.songs[id]||{};
+  const refMastered = ref && SRS.sectionMastered(s, ref);
+  const band=S.band;
 
-  const ln=R.lines(s);
-  const overview = ln.length ? `
-    <div class="overview">
-      <button class="ov-head" id="ovToggle">
-        <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg> Aperçu des paroles</span>
-        <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
-      </button>
-      <div class="ov-body" id="ovBody">
-        ${ln.map(l=>`<div class="ov-line"><div class="o">${R.esc(l.pt)}</div><div class="t">${R.esc(l.fr)}</div></div>`).join("")}
-      </div>
-    </div>` : "";
+  // déverrouillage des couplets (§4.5)
+  const verseUnlocked=(k)=>{
+    if(!refMastered) return false;
+    if(band>=2) return true;                                  // bandes 2-3 : tous après le refrain
+    for(let j=0;j<k;j++){ if(!SRS.sectionMastered(s, verses[j].sec)) return false; }  // bande 1 : un à la fois
+    return true;
+  };
 
-  document.getElementById("levelMap").innerHTML=`
-    <div class="learn-head">
+  // complétion (§6)
+  const versesNeeded = band===1 ? verses.slice(0,1) : verses;
+  const versesDone = versesNeeded.every(v=>SRS.sectionMastered(s, v.sec));
+  const completed = refMastered && versesDone;
+  const full = completed && (ps.shadow===true);
+  if(completed!==ps.completed || full!==ps.full){ ps.completed=completed; ps.full=full; S.prog.songs[id]=ps; S.store.saveProgress(R.PROGRESS_ID,S.prog); }
+
+  const step=(state, tag, name, desc, action)=>`
+    <div class="pstep ${state}" ${state!=="locked"&&action?`onclick="${action}"`:""}>
+      <div class="pbubble">${state==="done"?miniCheck():state==="locked"?lockIcon():playIcon()}</div>
+      <div class="pinfo"><div class="ptag">${tag}</div><div class="pname">${name}</div><div class="pdesc">${desc}</div></div>
+    </div>`;
+
+  let steps="";
+  // 1. Découverte
+  steps+=step(ps.discovered?"done":"current","Étape 1","Découverte", band===1?"Écoute, paroles + traduction":band===2?"Écoute, traduction à la demande":"Écoute, sens mot à mot", `startDiscovery('${id}')`);
+  // 2. Refrain
+  const refState = !ps.discovered?"locked":(refMastered?"done":"current");
+  steps+=step(refState,"Étape 2","Refrain — entraînement", refMastered?"Maîtrisé":`Cloze adaptatif · ${SRS.sectionPct(s,ref)}% de maîtrise`, ps.discovered?`startTraining('${id}',${refIdx})`:null);
+  // 3. Shadowing (auto-déclaratif)
+  const shState = !refMastered?"locked":(ps.shadow?"done":"current");
+  steps+=step(shState,"Étape 3", "Refrain — shadowing", band===3?"Requis pour la maîtrise complète":"Répète le refrain à voix haute (facultatif)", refMastered?`declareShadow('${id}')`:null);
+  // 4. Couplets
+  verses.forEach((v,k)=>{
+    const unlocked=verseUnlocked(k), m=SRS.sectionMastered(s,v.sec);
+    const stt = !unlocked?"locked":(m?"done":"current");
+    steps+=step(stt,"Couplet "+(k+1), "Couplet "+(k+1)+" — entraînement", m?"Maîtrisé":unlocked?`Cloze · ${SRS.sectionPct(s,v.sec)}%`:"Maîtrise le refrain d'abord", unlocked?`startTraining('${id}',${v.i})`:null);
+  });
+
+  const banner = completed?`<div class="complete-banner ${full?'full':''}">${full?checkBig():miniCheck()} <div><b>${full?"Maîtrise complète":"Chanson complétée"}</b><span>${full?"Refrain + couplets maîtrisés, shadowing fait.":band===3?"Fais le shadowing pour la maîtrise complète.":"Tu peux viser la maîtrise complète avec le shadowing."}</span></div></div>`:"";
+
+  document.getElementById("songView").innerHTML=`
+    <div class="song-head">
       <div class="row">
         <div><h2>${R.esc(s.title)}</h2><div class="art">${R.esc(s.artist||"")} · ${R.langLabel(s.lang||"pt")}</div></div>
-        ${s.deezer?`<a class="deezer" href="${R.esc(s.deezer)}" target="_blank" rel="noopener"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M19 4h3v4h-3zM19 9h3v4h-3zM14 9h3v4h-3zM14 14h3v4h-3zM9 14h3v4H9zM4 14h3v4H4z"/></svg> Écouter sur Deezer</a>`:""}
+        <div class="cefr-badge b${songBand(s)} big">${R.esc(s.cefr||"A2")}</div>
       </div>
-      <div class="pct"><span>Progression</span><span>${R.songProgressPct(s,S.prog)}%</span></div>
-      <div class="bar green" style="margin-top:8px"><i style="width:${R.songProgressPct(s,S.prog)}%"></i></div>
     </div>
-    ${overview}
-    <div class="path">${nodes||'<div class="empty"><b>Pas assez de contenu</b>Ajoute des mots et des paroles depuis l’espace gestion.</div>'}</div>`;
-
-  const ov=document.getElementById("ovBody"), tog=document.getElementById("ovToggle");
-  if(tog) tog.onclick=()=>{ ov.classList.toggle("collapsed"); tog.classList.toggle("collapsed"); };
-
-  showView("levels");
-  requestAnimationFrame(()=>document.querySelectorAll("#levelMap .bar i").forEach(b=>b.style.width=b.style.width));
+    ${banner}
+    <div class="parcours">${steps}</div>`;
+  showView("song");
 }
+
+async function declareShadow(id){
+  S.prog.songs[id]=S.prog.songs[id]||{};
+  S.prog.songs[id].shadow=true;
+  await S.store.saveProgress(R.PROGRESS_ID, S.prog);
+  R.toast("Shadowing noté — bravo");
+  openSong(id);
+}
+
+function lockIcon(){ return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>'; }
+function playIcon(){ return '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>'; }

@@ -25,10 +25,10 @@
   <div class="section-head"><div><h2><span class="live-dot"></span>Ta progression</h2><div class="sub">ton parcours, langue par langue</div></div></div>
 
   <div class="stats stagger">
-    <div class="stat"><div class="n" id="stXp">0</div><div class="l">XP total</div></div>
-    <div class="stat"><div class="n" id="stLevels">0</div><div class="l">niveaux validés</div></div>
-    <div class="stat"><div class="n" id="stSongs">0</div><div class="l">chansons commencées</div></div>
-    <div class="stat"><div class="n" id="stAvg">0%</div><div class="l">progression moyenne</div></div>
+    <div class="stat"><div class="n" id="stCefr">A2</div><div class="l">niveau CEFR</div></div>
+    <div class="stat"><div class="n" id="stMastered">0</div><div class="l">cartes maîtrisées</div></div>
+    <div class="stat"><div class="n" id="stDone">0</div><div class="l">chansons complétées</div></div>
+    <div class="stat"><div class="n" id="stRate">—</div><div class="l">réussite récente</div></div>
   </div>
 
   <div class="section-head" style="margin-bottom:14px"><div><h2 style="font-size:1.4rem">Par chanson</h2></div></div>
@@ -36,6 +36,7 @@
 </main>
 
 <script src="core.js"></script>
+<script src="srs.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 function ring(pct){
@@ -52,33 +53,34 @@ function ring(pct){
     const lang=(profile && profile.lang)||"pt";
     const songs=all.filter(s=>(s.lang||"pt")===lang);
     const prog=await store.getProgress(R.PROGRESS_ID);
+    await SRS.load();
 
     document.querySelector(".section-head .sub").textContent="ton parcours en "+R.langLabel(lang).toLowerCase();
 
-    let totalLevels=0, started=0, sumPct=0;
-    songs.forEach(s=>{
-      const done=(prog.songs[s.id]?.done)||[];
-      totalLevels+=done.length;
-      if(done.length) started++;
-      sumPct+=R.songProgressPct(s,prog);
-    });
-    $("#stXp").textContent=prog.xp||0;
-    $("#stLevels").textContent=totalLevels;
-    $("#stSongs").textContent=started;
-    $("#stAvg").textContent=(songs.length?Math.round(sumPct/songs.length):0)+"%";
+    const st=SRS.stats();
+    const r=(prog.recent||[]);
+    $("#stCefr").textContent=(profile&&profile.cefr)||"A2";
+    $("#stMastered").textContent=st.mastered;
+    $("#stDone").textContent=Object.values(prog.songs||{}).filter(x=>x.completed).length;
+    $("#stRate").textContent=r.length?Math.round(r.filter(Boolean).length/r.length*100)+"%":"—";
 
     const rows=$("#rows");
     if(!songs.length){ rows.innerHTML=`<div class="empty"><b>Rien à afficher</b>Aucune chanson en ${R.langLabel(lang)} pour l'instant.</div>`; return; }
     rows.className="stagger";
     rows.innerHTML=songs.map(s=>{
-      const lv=R.buildLevels(s);
-      const done=(prog.songs[s.id]?.done)||[];
-      const pct=R.songProgressPct(s,prog);
-      const chips=lv.map(l=>`<span class="chip ${done.includes(l.key)?'done':''}">${l.name}</span>`).join("");
+      const ref=R.refrain(s);
+      const pct = ref? SRS.sectionPct(s,ref) : 0;
+      const ps=prog.songs[s.id]||{};
+      const secs=R.sections(s);
+      const chips=secs.map(sec=>{
+        const m=SRS.sectionMastered(s,sec);
+        return `<span class="chip ${m?'done':''}">${sec.type==="refrain"?"Refrain":"Couplet"}</span>`;
+      }).join("");
+      const tag = ps.full?`<span class="chip done">Maîtrise complète</span>`:ps.completed?`<span class="chip done">Complétée</span>`:"";
       return `<a class="prog-row" href="apprendre.html?song=${s.id}">
         <div class="left">
-          <div class="nm">${R.esc(s.title)}</div>
-          <div class="lv">${chips||'<span class="chip">aucun niveau — ajoute du contenu</span>'}</div>
+          <div class="nm">${R.esc(s.title)} <span class="cefr-inline">${R.esc(s.cefr||"A2")}</span></div>
+          <div class="lv">${chips}${tag}</div>
         </div>
         ${ring(pct)}
       </a>`;
