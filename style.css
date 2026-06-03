@@ -530,3 +530,39 @@ a{color:inherit;text-decoration:none}
 
 /* tableau cohorte : sélecteur de niveau */
 .lvl-sel{background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:4px 8px;color:var(--text);font-family:var(--font-mono);font-size:.82rem}
+
+/* ============================================================
+   v3 : login apprenant simplifié, genres, complétude, accueil
+   ============================================================ */
+.linkbtn{background:none;border:none;color:var(--blue-soft);font-size:.82rem;text-decoration:underline;cursor:pointer;margin-top:10px;padding:0}
+.linkbtn:hover{color:var(--blue)}
+.who{font-size:.85rem;color:var(--text-dim);font-weight:600;margin-right:4px}
+
+/* sous-titre accueil tournant */
+.lead-sub{transition:opacity .4s var(--ease), transform .4s var(--ease)}
+.lead-sub.fade{opacity:0;transform:translateY(6px)}
+h1 .em{color:var(--blue);font-style:normal}
+
+/* test de niveau (stub) */
+#ltHost .lt-tag{font-family:var(--font-mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text-mute);margin-bottom:8px}
+.lt-q h3,.lt-done h3{font-family:var(--font-display);font-weight:700;font-size:1.15rem;margin-bottom:16px}
+.lt-opts{display:flex;flex-direction:column;gap:10px}
+.lt-opt{padding:13px 16px;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);text-align:left;font-weight:600;color:var(--text);transition:.18s}
+.lt-opt:hover{border-color:var(--blue);color:var(--blue-soft)}
+.lt-done{text-align:center}
+.lt-done b{color:var(--blue)}
+.lt-done p{color:var(--text-dim);font-size:.88rem;margin:10px 0 18px}
+
+/* réglages de cohorte */
+.cohort-settings{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px}
+.cs-field{flex:1;min-width:160px}
+.cs-field label{display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-mute);margin-bottom:6px}
+.cs-field select{width:100%;background:var(--surface-2);border:1px solid var(--border-2);border-radius:10px;padding:9px 12px;color:var(--text);font-size:.88rem}
+
+/* banque : badges multiples, genre, incomplet, tags */
+.song-card .badges{position:absolute;top:14px;left:14px;right:14px;display:flex;flex-wrap:wrap;gap:6px}
+.genre-badge{font-family:var(--font-mono);font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:var(--purple);background:rgba(184,155,255,.12);border:1px solid rgba(184,155,255,.28);border-radius:6px;padding:3px 7px}
+.incomplete-badge{font-family:var(--font-mono);font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:var(--red);background:rgba(255,138,138,.12);border:1px solid rgba(255,138,138,.3);border-radius:6px;padding:3px 7px}
+.song-card.incomplete{opacity:.72;border-style:dashed}
+.song-card .tags{font-size:.74rem;color:var(--text-mute);margin-top:6px;font-style:italic}
+.song-card .badges + .ttl{margin-top:34px}

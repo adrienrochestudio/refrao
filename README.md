@@ -26,8 +26,8 @@ Plateforme d'apprentissage par la musique, fondée sur une note pédagogique : i
 - **Reporté** (assumé) : test de niveau (§10), estimation auto de difficulté, production audio réelle (le shadowing est auto-déclaratif). Ligue de cohorte : à ajouter.
 
 ## Configuration Firebase
-1. **Authentication** → activer **Email/Password**.
-2. **Firestore** → onglet **Règles** (ajout de la collection `cards`) :
+1. **Authentication → Sign-in method** : activer **Email/Password** (gestionnaires) ET **Anonyme** (apprenants — ils se connectent sans mot de passe).
+2. **Firestore** → onglet **Règles** (inchangées depuis la version précédente ; vérifie qu'elles sont publiées) :
 
 ```
 rules_version = '2';
@@ -77,3 +77,11 @@ Dans l'éditeur : renseigner le **CEFR** (la bande en découle), coller les paro
 
 ## Mettre en ligne
 Tous les fichiers à la racine du dépôt → GitHub Pages. Firebase ne marche qu'en `https://`. Cmd+Maj+R après chaque déploiement (cache).
+
+## À faire dans Firebase pour cette mise à jour
+- **Activer le fournisseur « Anonyme »** dans Authentication (sinon la connexion apprenant échoue avec `operation-not-allowed`).
+- **Règles** : aucune nouvelle collection ni changement requis (les apprenants anonymes écrivent leurs propres `users` / `progress` / `cards`, déjà couverts).
+- **Données existantes (aucune migration obligatoire, les champs sont additifs)** :
+  - `cohorts` reçoit `lang`, `level`, `category`. Les cohortes créées avant n'ont pas ces champs : ouvre « Ma cohorte » et règle-les une fois (valeurs par défaut sinon : lang `pt`, level `A2`, category vide = toutes).
+  - `songs` reçoit `genre` et `tags`. **Toute chanson sans genre (ou sans CEFR, sans refrain, sans traduction complète) apparaît « incomplète » et reste invisible côté apprenants** — c'est voulu. Rouvre chaque chanson, complète-la, enregistre.
+  - `users` (apprenant) utilise désormais `firstName` / `lastName` au lieu d'un email. Les éventuels anciens comptes apprenants par email continuent d'exister mais ne seront plus créés par ce flux.

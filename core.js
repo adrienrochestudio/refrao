@@ -31,6 +31,9 @@ R.bandOf = cefr => { const i=R.CEFR.indexOf(cefr); return i<2?1 : i<4?2 : 3; }; 
 R.bandName = b => R.BANDS[b] || "Découverte";
 R.PLACEMENT = { debutant:"A2", intermediaire:"B1", avance:"C1" };                          // auto-placement §3.2.b
 
+/* ---- styles musicaux (inspiré Deezer/Spotify) ---- */
+R.GENRES = ["Pop","Rock","Hip-hop","R&B / Soul","Électro","Jazz","Classique","Folk / Acoustique","Latino","Reggae","Variété","Bande originale","Autre"];
+
 /* ---- utilitaires ---- */
 R.esc = s => (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 R.uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -201,7 +204,7 @@ R.signup = async function(opts){
     if(existing) throw new Error("Cet identifiant de cohorte est déjà pris.");
     const cred=await m.createUserWithEmailAndPassword(auth, opts.email, opts.pw);
     const uid=cred.user.uid;
-    await store.setCohort(code, {code, managerUid:uid, createdAt:Date.now()});
+    await store.setCohort(code, {code, managerUid:uid, lang:opts.lang||"pt", level:"A2", category:"", createdAt:Date.now()});
     await store.setUser(uid, {role:"manager", email:opts.email, lang:opts.lang||"pt", cohortId:code, createdAt:Date.now()});
   }else{
     let code="";
@@ -225,7 +228,7 @@ R.completeProfile = async function(opts){
     const code=R.slug(opts.cohortCode);
     if(code.length<3) throw new Error("Identifiant de cohorte trop court (3+ caractères).");
     if(await store.getCohort(code)) throw new Error("Cet identifiant de cohorte est déjà pris.");
-    await store.setCohort(code, {code, managerUid:_user.uid, createdAt:Date.now()});
+    await store.setCohort(code, {code, managerUid:_user.uid, lang:opts.lang||"pt", level:"A2", category:"", createdAt:Date.now()});
     await store.setUser(_user.uid, {role:"manager", email:_user.email, lang:opts.lang||"pt", cohortId:code, createdAt:Date.now()});
   }else{
     let code="";
@@ -235,6 +238,24 @@ R.completeProfile = async function(opts){
   }
   _profile=await store.getUser(_user.uid);
   return {role:opts.role};
+};
+
+/* connexion apprenant SANS mot de passe : code cohorte + prénom + nom + niveau (auth anonyme) */
+R.joinAsLearner = async function({code, firstName, lastName, cefr}){
+  if(!R.AUTH_ENABLED) throw new Error("Firebase requis");
+  if(!firstName || !firstName.trim()) throw new Error("Indique au moins ton prénom.");
+  const store=await R.getStore();
+  const c0=R.slug(code||"");
+  const cohort=await store.getCohort(c0);
+  if(!cohort) throw new Error("Ce code de cohorte n'existe pas.");
+  const {auth,m}=await fbAuth();
+  const cred=await m.signInAnonymously(auth);
+  const uid=cred.user.uid;
+  const cf=cefr || cohort.level || "A2";
+  const lang=cohort.lang || "pt";
+  await store.setUser(uid, {role:"learner", firstName:firstName.trim(), lastName:(lastName||"").trim(), lang, cohortId:c0, cefr:cf, band:R.bandOf(cf), streak:{count:0,last:null,freezes:2}, createdAt:Date.now()});
+  _profile=await store.getUser(uid);
+  return {role:"learner"};
 };
 
 /* mises à jour de profil */
@@ -269,7 +290,8 @@ R.mountAuthButton = function(){
   R.onAuthProfile((u,p)=>{
     if(u && p){
       const gestion = p.role==="manager" ? `<a class="btn btn-sm" href="gestion.html">Espace gestion</a>` : "";
-      slot.innerHTML = gestion+`<button class="btn btn-sm btn-ghost" id="logoutBtn">Déconnexion</button>`;
+      const who = p.role==="learner" && p.firstName ? `<span class="who">${R.esc(p.firstName)}</span>` : "";
+      slot.innerHTML = who+gestion+`<button class="btn btn-sm btn-ghost" id="logoutBtn">Déconnexion</button>`;
       const lo=slot.querySelector("#logoutBtn"); if(lo) lo.onclick=()=>R.logout().then(()=>location.href="index.html");
     }else{
       slot.innerHTML = `<a class="btn btn-sm" href="auth.html">Connexion</a>`;
@@ -304,6 +326,23 @@ R.mountChrome = function(active){
 R.setLearnerLevel = async function(uid, cefr){
   const store=await R.getStore();
   await store.setUser(uid, {cefr, band:R.bandOf(cefr)});
+};
+
+/* réglages de cohorte (langue / niveau cible / catégorie de chansons) */
+R.updateCohort = async function(code, fields){
+  const store=await R.getStore();
+  const cur=(await store.getCohort(code))||{code};
+  await store.setCohort(code, {...cur, ...fields});
+  return {...cur, ...fields};
+};
+
+/* une chanson est-elle complète (visible côté apprenant) ? */
+R.songComplete = function(s){
+  if(!s) return false;
+  if(!s.title || !s.artist || !s.lang || !s.cefr || !s.genre) return false;
+  const secs=R.sections(s);
+  if(!secs.length || !secs.some(x=>x.type==="refrain")) return false;
+  return secs.every(sec=>sec.lines.every(l=>l.pt && l.fr));
 };
 
 /* ---- structure refrain / couplets (note §2, §4.5) ---- */

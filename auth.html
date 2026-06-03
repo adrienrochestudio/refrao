@@ -19,60 +19,57 @@
 <main class="shell">
   <div class="auth-wrap">
     <div class="auth-card">
-      <div class="tabs">
-        <button class="tab on" id="tabLogin">Se connecter</button>
-        <button class="tab" id="tabSignup">Créer un compte</button>
+      <div class="seg" style="margin-bottom:22px">
+        <button class="seg-opt on" id="rApprenant" type="button">Apprenant</button>
+        <button class="seg-opt" id="rManager" type="button">Gestionnaire</button>
       </div>
 
-      <!-- LOGIN -->
-      <div id="paneLogin">
-        <div class="field"><label>Email</label><input id="liEmail" type="email" autocomplete="username"></div>
-        <div class="field"><label>Mot de passe</label><input id="liPw" type="password" autocomplete="current-password"></div>
-        <div class="err" id="liErr"></div>
-        <button class="btn btn-primary" id="liGo" style="width:100%;justify-content:center">Se connecter</button>
+      <!-- ============ APPRENANT (sans mot de passe) ============ -->
+      <div id="paneLearner">
+        <div id="learnerForm">
+          <div class="field"><label>Code de cohorte</label><input id="leCode" placeholder="le code donné par ton enseignant" autocapitalize="off"></div>
+          <div class="two-col">
+            <div class="field"><label>Prénom</label><input id="leFirst" placeholder="ton prénom"></div>
+            <div class="field"><label>Nom</label><input id="leLast" placeholder="ton nom"></div>
+          </div>
+          <div class="field">
+            <label>Ton niveau de langue</label>
+            <div class="seg">
+              <button class="seg-opt on" data-place="debutant" type="button">Débutant</button>
+              <button class="seg-opt" data-place="intermediaire" type="button">Intermédiaire</button>
+              <button class="seg-opt" data-place="avance" type="button">Avancé</button>
+            </div>
+            <button class="linkbtn" id="leDontKnow" type="button">Je ne connais pas mon niveau — faire le test</button>
+          </div>
+          <div class="err" id="leErr"></div>
+          <button class="btn btn-primary" id="leGo" style="width:100%;justify-content:center">Commencer</button>
+        </div>
+        <div id="ltHost" class="hidden"></div>
       </div>
 
-      <!-- SIGNUP / COMPLETION -->
-      <div id="paneSignup" class="hidden">
-        <div class="lead hidden" id="completeHead" style="margin-bottom:18px">Bienvenue ! Termine la configuration de ton compte.</div>
-        <div class="field">
-          <label>Je suis</label>
-          <div class="seg">
-            <button class="seg-opt on" data-role="learner">Apprenant</button>
-            <button class="seg-opt" data-role="manager">Gestionnaire de cohorte</button>
-          </div>
-        </div>
-        <div class="field" id="fEmail"><label>Email</label><input id="suEmail" type="email" autocomplete="username"></div>
-        <div class="field" id="fPw"><label>Mot de passe</label><input id="suPw" type="password" autocomplete="new-password" placeholder="6 caractères minimum"></div>
-
-        <div class="field" id="fLang">
-          <label>Langue à apprendre</label>
-          <select id="suLang"></select>
+      <!-- ============ GESTIONNAIRE (email + mot de passe) ============ -->
+      <div id="paneManager" class="hidden">
+        <div class="tabs">
+          <button class="tab on" id="tabLogin" type="button">Se connecter</button>
+          <button class="tab" id="tabSignup" type="button">Créer un compte</button>
         </div>
 
-        <div class="field" id="fPlace">
-          <label>Comment situes-tu ton niveau ?</label>
-          <div class="seg">
-            <button class="seg-opt on" data-place="debutant" type="button">Débutant</button>
-            <button class="seg-opt" data-place="intermediaire" type="button">Intermédiaire</button>
-            <button class="seg-opt" data-place="avance" type="button">Avancé</button>
-          </div>
-          <div class="hint-small">On ajuste ensuite automatiquement selon tes résultats.</div>
+        <div id="paneLogin">
+          <div class="field"><label>Email</label><input id="liEmail" type="email" autocomplete="username"></div>
+          <div class="field"><label>Mot de passe</label><input id="liPw" type="password" autocomplete="current-password"></div>
+          <div class="err" id="liErr"></div>
+          <button class="btn btn-primary" id="liGo" style="width:100%;justify-content:center">Se connecter</button>
         </div>
 
-        <div class="field" id="fJoin">
-          <label>Code de cohorte <span style="color:var(--text-mute);text-transform:none;letter-spacing:0">(facultatif)</span></label>
-          <input id="suJoin" placeholder="si ton enseignant t'en a donné un">
+        <div id="paneSignup" class="hidden">
+          <div class="lead hidden" id="completeHead" style="margin-bottom:18px">Termine la configuration de ton compte.</div>
+          <div class="field" id="fEmail"><label>Email</label><input id="suEmail" type="email" autocomplete="username"></div>
+          <div class="field" id="fPw"><label>Mot de passe</label><input id="suPw" type="password" autocomplete="new-password" placeholder="6 caractères minimum"></div>
+          <div class="field"><label>Langue enseignée</label><select id="suLang"></select></div>
+          <div class="field"><label>Ton identifiant de cohorte</label><input id="suCohort" placeholder="ex : hugo-3eB-2026"><div class="hint-small">Lettres, chiffres, tirets. C'est le code que tes apprenants saisiront. Modifiable plus tard.</div></div>
+          <div class="err" id="suErr"></div>
+          <button class="btn btn-primary" id="suGo" style="width:100%;justify-content:center">Créer mon compte</button>
         </div>
-
-        <div class="field hidden" id="fCohort">
-          <label>Ton identifiant de cohorte</label>
-          <input id="suCohort" placeholder="ex : hugo-3eB-2026">
-          <div style="font-size:.78rem;color:var(--text-mute);margin-top:6px">Lettres, chiffres et tirets. C'est le code que tu transmettras à tes apprenants. Modifiable plus tard.</div>
-        </div>
-
-        <div class="err" id="suErr"></div>
-        <button class="btn btn-primary" id="suGo" style="width:100%;justify-content:center">Créer mon compte</button>
       </div>
     </div>
     <a href="index.html" class="back" style="display:block;text-align:center;margin-top:18px">Retour à l'accueil</a>
@@ -80,83 +77,76 @@
 </main>
 
 <script src="core.js"></script>
+<script src="leveltest.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 let completing=false;
 
-// redirection / complétion selon l'état
 R.onAuthProfile((u,p)=>{
   if(u && p){ location.href = p.role==="manager"?"gestion.html":"apprendre.html"; return; }
-  if(u && !p){ showComplete(); }   // compte existant sans profil -> compléter
+  if(u && !p && !u.isAnonymous){ openManager(); showComplete(); }   // ancien compte email sans profil
 });
 
-// langues
 $("#suLang").innerHTML = R.LANGS.map(l=>`<option value="${l.code}">${l.label}</option>`).join("");
 
-// onglets
-function show(login){
-  $("#tabLogin").classList.toggle("on",login);
-  $("#tabSignup").classList.toggle("on",!login);
-  $("#paneLogin").classList.toggle("hidden",!login);
-  $("#paneSignup").classList.toggle("hidden",login);
-}
-$("#tabLogin").onclick=()=>show(true);
-$("#tabSignup").onclick=()=>show(false);
+/* bascule Apprenant / Gestionnaire */
+function openLearner(){ $("#rApprenant").classList.add("on"); $("#rManager").classList.remove("on"); $("#paneLearner").classList.remove("hidden"); $("#paneManager").classList.add("hidden"); }
+function openManager(){ $("#rManager").classList.add("on"); $("#rApprenant").classList.remove("on"); $("#paneManager").classList.remove("hidden"); $("#paneLearner").classList.add("hidden"); }
+$("#rApprenant").onclick=openLearner;
+$("#rManager").onclick=openManager;
 
-// passe en mode "compléter mon compte" (déjà connecté, pas de profil)
+/* ---------- Apprenant ---------- */
+let place="debutant";
+document.querySelectorAll("#paneLearner .seg-opt[data-place]").forEach(b=>{
+  b.onclick=()=>{ document.querySelectorAll("#paneLearner .seg-opt[data-place]").forEach(x=>x.classList.remove("on")); b.classList.add("on"); place=b.dataset.place; };
+});
+function learnerValid(){
+  const code=$("#leCode").value.trim(), first=$("#leFirst").value.trim();
+  if(!code){ $("#leErr").textContent="Entre le code de ta cohorte."; return null; }
+  if(!first){ $("#leErr").textContent="Entre au moins ton prénom."; return null; }
+  $("#leErr").textContent="";
+  return { code, firstName:first, lastName:$("#leLast").value.trim() };
+}
+async function joinLearner(cefr){
+  const base=learnerValid(); if(!base) return;
+  try{ await R.joinAsLearner({...base, cefr}); location.href="apprendre.html"; }
+  catch(e){ $("#leErr").textContent=e.message||"Impossible de rejoindre la cohorte."; openLearner(); $("#ltHost").classList.add("hidden"); $("#learnerForm").classList.remove("hidden"); }
+}
+$("#leGo").onclick=()=>{ if(learnerValid()) joinLearner(R.PLACEMENT[place]||"A2"); };
+$("#leDontKnow").onclick=()=>{
+  if(!learnerValid()) return;
+  $("#learnerForm").classList.add("hidden");
+  $("#ltHost").classList.remove("hidden");
+  LevelTest.run("", cefr=>joinLearner(cefr));
+};
+
+/* ---------- Gestionnaire ---------- */
+function showLogin(login){ $("#tabLogin").classList.toggle("on",login); $("#tabSignup").classList.toggle("on",!login); $("#paneLogin").classList.toggle("hidden",!login); $("#paneSignup").classList.toggle("hidden",login); }
+$("#tabLogin").onclick=()=>showLogin(true);
+$("#tabSignup").onclick=()=>showLogin(false);
+
 function showComplete(){
-  completing=true;
-  document.querySelector(".tabs").classList.add("hidden");
-  $("#paneLogin").classList.add("hidden");
-  $("#paneSignup").classList.remove("hidden");
+  completing=true; showLogin(false);
   $("#completeHead").classList.remove("hidden");
-  $("#fEmail").classList.add("hidden");
-  $("#fPw").classList.add("hidden");
+  $("#fEmail").classList.add("hidden"); $("#fPw").classList.add("hidden");
   $("#suGo").textContent="Terminer mon compte";
 }
 
-// rôle
-let role="learner", place="debutant";
-document.querySelectorAll(".seg-opt[data-role]").forEach(b=>{
-  b.onclick=()=>{
-    document.querySelectorAll(".seg-opt[data-role]").forEach(x=>x.classList.remove("on"));
-    b.classList.add("on"); role=b.dataset.role;
-    const mgr=role==="manager";
-    $("#fJoin").classList.toggle("hidden",mgr);
-    $("#fCohort").classList.toggle("hidden",!mgr);
-    $("#fPlace").classList.toggle("hidden",mgr);
-    $("#fLang").querySelector("label").textContent = mgr? "Langue par défaut" : "Langue à apprendre";
-  };
-});
-document.querySelectorAll(".seg-opt[data-place]").forEach(b=>{
-  b.onclick=()=>{ document.querySelectorAll(".seg-opt[data-place]").forEach(x=>x.classList.remove("on")); b.classList.add("on"); place=b.dataset.place; };
-});
-
-// login
-$("#liGo").onclick=async()=>{
-  $("#liErr").textContent="";
-  try{ await R.login($("#liEmail").value.trim(), $("#liPw").value); }
-  catch(e){ $("#liErr").textContent="Identifiants incorrects."; }
-};
+$("#liGo").onclick=async()=>{ $("#liErr").textContent=""; try{ await R.login($("#liEmail").value.trim(), $("#liPw").value); }catch(e){ $("#liErr").textContent="Identifiants incorrects."; } };
 $("#liPw").addEventListener("keydown",e=>{ if(e.key==="Enter")$("#liGo").click(); });
 
-// signup OU completion
 $("#suGo").onclick=async()=>{
   $("#suErr").textContent="";
-  const lang=$("#suLang").value;
-  const opts={role, lang};
-  if(role==="learner") opts.cefr=R.PLACEMENT[place]||"A2";
-  opts.cohortCode = role==="manager" ? $("#suCohort").value : $("#suJoin").value;
+  const opts={ role:"manager", lang:$("#suLang").value, cohortCode:$("#suCohort").value };
   try{
     let res;
-    if(completing){
-      res=await R.completeProfile(opts);
-    }else{
+    if(completing){ res=await R.completeProfile(opts); }
+    else{
       const email=$("#suEmail").value.trim(), pw=$("#suPw").value;
       if(!email||pw.length<6){ $("#suErr").textContent="Email valide et mot de passe de 6 caractères minimum."; return; }
       res=await R.signup({...opts, email, pw});
     }
-    location.href = res.role==="manager"?"gestion.html":"apprendre.html";
+    location.href="gestion.html";
   }catch(e){
     let m=e.message||"Erreur";
     if(/email-already-in-use/.test(m)) m="Cet email a déjà un compte.";

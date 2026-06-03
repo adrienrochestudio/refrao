@@ -47,6 +47,10 @@
       <div class="field"><label>Langue de la chanson</label><select id="edLang"></select></div>
       <div class="field"><label>Niveau CEFR</label><select id="edCefr"></select><div class="hint-small" id="bandHint"></div></div>
     </div>
+    <div class="two-col">
+      <div class="field"><label>Style / genre</label><select id="edGenre"></select></div>
+      <div class="field"><label>Mots-clés (séparés par des virgules)</label><input id="edTags" placeholder="ex : bossa nova, été, années 70"></div>
+    </div>
     <div class="field">
       <label>Lien Deezer</label>
       <div style="display:flex;gap:10px">
@@ -113,6 +117,7 @@ async function load(profile){
   $("#edLang").innerHTML=R.LANGS.map(l=>`<option value="${l.code}">${l.label}</option>`).join("");
   $("#edCefr").innerHTML=R.CEFR.map(c=>`<option value="${c}">${c} — bande ${R.bandOf(c)} (${R.bandName(R.bandOf(c))})</option>`).join("");
   $("#edCefr").onchange=()=>{ $("#bandHint").textContent="Bande "+R.bandOf($("#edCefr").value)+" — "+R.bandName(R.bandOf($("#edCefr").value)); };
+  $("#edGenre").innerHTML=`<option value="">— choisir —</option>`+R.GENRES.map(g=>`<option value="${g}">${g}</option>`).join("");
   const store=await R.getStore();
   SONGS=await store.getSongs();
   renderBank();
@@ -126,39 +131,46 @@ async function renderCohort(){
   const code=(PROFILE&&PROFILE.cohortId)||"";
   if(!code){ panel.innerHTML=""; return; }
   const store=await R.getStore();
+  const cohort=(await store.getCohort(code))||{code, lang:"pt", level:"A2", category:""};
   let learners=[];
   try{ learners = store.listLearners ? await store.listLearners(code) : []; }catch(e){}
   learners = learners.filter(l=>l.role==="learner");
 
   let rows="";
   for(const l of learners){
-    let prog={xp:0,songs:{}}, cards={cards:{}};
+    let prog={songs:{}}, cards={cards:{}};
     try{ prog=await store.getProgress(l.uid); }catch(e){}
     try{ cards=await store.getCards(l.uid); }catch(e){}
-    const all=Object.values(cards.cards||{});
-    const mastered=all.filter(c=>c.state==="maîtrisée").length;
+    const mastered=Object.values(cards.cards||{}).filter(c=>c.state==="maîtrisée").length;
     const r=(prog.recent||[]); const rate=r.length?Math.round(r.filter(Boolean).length/r.length*100)+"%":"—";
     const completed=Object.values(prog.songs||{}).filter(x=>x.completed).length;
     const cefr=l.cefr||"A2";
+    const name=R.esc(((l.firstName||"")+" "+(l.lastName||"")).trim()||l.email||"Apprenant");
     const sel=`<select class="lvl-sel" data-uid="${l.uid}">${R.CEFR.map(c=>`<option value="${c}" ${c===cefr?"selected":""}>${c}</option>`).join("")}</select>`;
-    rows+=`<tr><td>${R.esc(l.email||l.uid)}</td><td>${R.langLabel(l.lang||"")}</td><td>${sel}<span class="band-tag">B${R.bandOf(cefr)}</span></td><td class="v">${mastered}</td><td class="v">${completed}</td><td class="v">${rate}</td></tr>`;
+    rows+=`<tr><td>${name}</td><td>${sel}<span class="band-tag">B${R.bandOf(cefr)}</span></td><td class="v">${mastered}</td><td class="v">${completed}</td><td class="v">${rate}</td></tr>`;
   }
+  const genreOpts=`<option value="">Toutes les catégories</option>`+R.GENRES.map(g=>`<option value="${g}" ${cohort.category===g?"selected":""}>${g}</option>`).join("");
   panel.innerHTML=`
     <div class="cohort-head">
       <div>
-        <div class="cap">Ta cohorte</div>
+        <div class="cap">Ma cohorte</div>
         <div class="code"><span id="cohortCode">${R.esc(code)}</span>
           <button class="icbtn" id="editCode" title="Modifier l'identifiant"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
         </div>
-        <div class="hint">Transmets ce code à tes apprenants. Tu peux corriger le niveau CEFR de chacun.</div>
+        <div class="hint">Transmets ce code à tes apprenants.</div>
       </div>
       <div class="count"><div class="n">${learners.length}</div><div class="l">apprenant${learners.length>1?"s":""}</div></div>
     </div>
-    ${learners.length?`<table class="cohort-table"><thead><tr><th>Apprenant</th><th>Langue</th><th>Niveau</th><th>Cartes</th><th>Complétées</th><th>Réussite</th></tr></thead><tbody>${rows}</tbody></table>`:`<div class="hint" style="margin-top:10px">Aucun apprenant n'a encore rejoint cette cohorte.</div>`}
+    <div class="cohort-settings">
+      <div class="cs-field"><label>Langue</label><select id="coLang">${R.LANGS.map(l=>`<option value="${l.code}" ${cohort.lang===l.code?"selected":""}>${l.label}</option>`).join("")}</select></div>
+      <div class="cs-field"><label>Niveau visé</label><select id="coLevel">${R.CEFR.map(c=>`<option value="${c}" ${cohort.level===c?"selected":""}>${c} — bande ${R.bandOf(c)}</option>`).join("")}</select></div>
+      <div class="cs-field"><label>Catégorie de chansons</label><select id="coCat">${genreOpts}</select></div>
+    </div>
+    ${learners.length?`<table class="cohort-table"><thead><tr><th>Apprenant</th><th>Niveau</th><th>Cartes</th><th>Complétées</th><th>Réussite</th></tr></thead><tbody>${rows}</tbody></table>`:`<div class="hint" style="margin-top:10px">Aucun apprenant n'a encore rejoint cette cohorte.</div>`}
   `;
-  panel.querySelectorAll(".lvl-sel").forEach(sel=>{
-    sel.onchange=async()=>{ try{ await R.setLearnerLevel(sel.dataset.uid, sel.value); R.toast("Niveau mis à jour"); renderCohort(); }catch(e){ R.toast("Impossible"); } };
-  });
+  const saveCohort=async()=>{ try{ await R.updateCohort(code, {lang:$("#coLang").value, level:$("#coLevel").value, category:$("#coCat").value}); R.toast("Cohorte mise à jour"); }catch(e){ R.toast("Impossible"); } };
+  ["coLang","coLevel","coCat"].forEach(id=>{ const el=document.getElementById(id); if(el) el.onchange=saveCohort; });
+  panel.querySelectorAll(".lvl-sel").forEach(sel=>{ sel.onchange=async()=>{ try{ await R.setLearnerLevel(sel.dataset.uid, sel.value); R.toast("Niveau mis à jour"); renderCohort(); }catch(e){ R.toast("Impossible"); } }; });
   $("#editCode").onclick=async()=>{
     const nv=prompt("Nouvel identifiant de cohorte (lettres, chiffres, tirets) :", code);
     if(!nv) return;
@@ -169,11 +181,14 @@ async function renderCohort(){
 
 function renderBank(){
   const list=$("#bankList");
-  $("#bankSub").textContent = SONGS.length+" chanson"+(SONGS.length>1?"s":"")+" — bibliothèque commune";
+  const incomplete=SONGS.filter(s=>!R.songComplete(s)).length;
+  $("#bankSub").innerHTML = SONGS.length+" chanson"+(SONGS.length>1?"s":"")+" — bibliothèque commune"+(incomplete?` · <span style="color:var(--red)">${incomplete} incomplète${incomplete>1?"s":""}</span>`:"");
   if(!SONGS.length){ list.className=""; list.innerHTML=`<div class="empty"><b>Aucune musique pour l'instant</b>Ajoute ta première chanson pour commencer.</div>`; return; }
+  const sorted=SONGS.slice().sort((a,b)=> (R.songComplete(a)?1:0)-(R.songComplete(b)?1:0) || a.title.localeCompare(b.title));
   list.className="song-grid stagger";
-  list.innerHTML=SONGS.map(s=>`
-    <div class="song-card" onclick="openEditor('${s.id}')">
+  list.innerHTML=sorted.map(s=>{
+    const complete=R.songComplete(s);
+    return `<div class="song-card ${complete?'':'incomplete'}" onclick="openEditor('${s.id}')">
       <div class="acts">
         <a class="icbtn" href="apprendre.html?song=${s.id}" onclick="event.stopPropagation()" title="Apprendre">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
@@ -182,15 +197,21 @@ function renderBank(){
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
         </button>
       </div>
-      <div class="lang-badge">${R.langLabel(s.lang||"pt")}</div>
+      <div class="badges">
+        <span class="lang-badge">${R.langLabel(s.lang||"pt")}</span>
+        ${s.genre?`<span class="genre-badge">${R.esc(s.genre)}</span>`:""}
+        ${complete?"":`<span class="incomplete-badge">incomplète</span>`}
+      </div>
       <div class="ttl">${R.esc(s.title)}</div>
       <div class="art">${R.esc(s.artist||"—")}</div>
+      ${s.tags?`<div class="tags">${R.esc(s.tags)}</div>`:""}
       <div class="meta">
         <span><span class="v">${s.pairs?.length||0}</span> mots</span>
         <span><span class="v">${(s.pt||"").split("\n").filter(Boolean).length}</span> vers</span>
-        ${s.deezer?`<span class="v">Deezer</span>`:""}
+        ${s.cefr?`<span class="v">${R.esc(s.cefr)}</span>`:""}
       </div>
-    </div>`).join("");
+    </div>`;
+  }).join("");
 }
 
 async function removeSong(id){
@@ -254,6 +275,8 @@ function openEditor(id){
   $("#edLang").value = s? (s.lang||"pt") : ((PROFILE&&PROFILE.lang)||"pt");
   $("#edCefr").value = s? (s.cefr||"A2") : "A2";
   $("#bandHint").textContent="Bande "+R.bandOf($("#edCefr").value)+" — "+R.bandName(R.bandOf($("#edCefr").value));
+  $("#edGenre").value = s? (s.genre||"") : "";
+  $("#edTags").value = s? (s.tags||"") : "";
   $("#edPt").value=s?s.pt:"";
   $("#edFr").value=s?s.fr:"";
   edit.sections = s && Array.isArray(s.sections) ? JSON.parse(JSON.stringify(s.sections)) : null;
@@ -327,11 +350,12 @@ async function saveSong(){
   const cefr=$("#edCefr").value;
   const sections = (edit.sections && edit.sections.length) ? edit.sections : R.autoSections($("#edPt").value, $("#edFr").value);
   const song={ id:edit.id||R.uid(), title, artist:$("#edArtist").value.trim(), lang:$("#edLang").value,
-    cefr, band:R.bandOf(cefr), sections,
+    cefr, band:R.bandOf(cefr), genre:$("#edGenre").value, tags:$("#edTags").value.trim(), sections,
     deezer:$("#edDeezer").value.trim(), pt:$("#edPt").value.trim(), fr:$("#edFr").value.trim(),
     pairs:edit.pairs, cover:edMeta.cover||"", preview:edMeta.preview||"" };
   const store=await R.getStore();
   await store.saveSong(song);
+  if(!R.songComplete(song)) R.toast("Enregistrée, mais incomplète — invisible côté apprenants");
   SONGS=await store.getSongs();
   const wasEdit=edit.id; closeEditor(); renderBank();
   R.toast(wasEdit?"Chanson mise à jour":"Chanson ajoutée");

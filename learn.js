@@ -19,6 +19,8 @@ async function init(profile){
   await SRS.load();
   S.curlang=(profile && profile.lang) || "pt";
   S.band=(profile && profile.band) || 1;
+  S.cohort=null;
+  if(profile && profile.cohortId){ try{ S.cohort=await S.store.getCohort(profile.cohortId); }catch(e){} }
   renderLangPick();
   renderChooser();
   const sid=new URLSearchParams(location.search).get("song");
@@ -31,11 +33,16 @@ function showView(id){
   window.scrollTo({top:0,behavior:"smooth"});
 }
 function showChooser(){ renderChooser(); showView("chooser"); }
-function songsForLang(){ return S.songs.filter(s=>(s.lang||"pt")===S.curlang); }
+function songsForLang(){
+  const cat = (S.profile && S.profile.role==="learner" && S.cohort && S.cohort.category) ? S.cohort.category : null;
+  return S.songs.filter(s=>(s.lang||"pt")===S.curlang && R.songComplete(s) && (!cat || s.genre===cat));
+}
 function songBand(s){ return s.band || R.bandOf(s.cefr||"A2"); }
 
 function renderLangPick(){
   const wrap=document.getElementById("langPick");
+  if(S.profile && S.profile.role==="learner"){ wrap.innerHTML=""; wrap.style.display="none"; return; }
+  wrap.style.display="";
   wrap.innerHTML=R.LANGS.map(l=>`<button class="lang-chip${l.code===S.curlang?' on':''}" data-lang="${l.code}" style="--c:${LANG_COLORS[l.code]||'#80b7ff'}">${l.label}</button>`).join("");
   wrap.querySelectorAll(".lang-chip").forEach(b=>{ b.onclick=async()=>{ S.curlang=b.dataset.lang; await R.setLang(S.curlang); renderLangPick(); renderChooser(); }; });
 }
