@@ -27,7 +27,25 @@ R.langLabel = c => (R.LANGS.find(l=>l.code===c)||{label:c}).label;
 /* ---- utilitaires ---- */
 R.esc = s => (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 R.uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-R.norm = s => s.toLowerCase().trim().replace(/[.,;:!?¿¡"'«»…]/g,"").replace(/\s+/g," ");
+R.fold = s => String(s==null?"":s).normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+R.norm = s => R.fold(s).toLowerCase().trim().replace(/[.,;:!?¿¡"'«»…]/g,"").replace(/\s+/g," ");
+function _lev(a,b){
+  const m=a.length,n=b.length; if(!m)return n; if(!n)return m;
+  let prev=Array.from({length:n+1},(_,i)=>i), cur=new Array(n+1);
+  for(let i=1;i<=m;i++){ cur[0]=i;
+    for(let j=1;j<=n;j++){ const c=a[i-1]===b[j-1]?0:1; cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+c); }
+    [prev,cur]=[cur,prev];
+  }
+  return prev[n];
+}
+/* comparaison tolérante : ignore casse/accents/ponctuation + petites fautes */
+R.match = function(input, answer){
+  const a=R.norm(input), b=R.norm(answer);
+  if(a===b) return true;
+  if(!a) return false;
+  const tol = b.length<=4 ? 0 : b.length<=8 ? 1 : 2;
+  return _lev(a,b) <= tol;
+};
 R.shuffle = a => a.map(v=>[Math.random(),v]).sort((x,y)=>x[0]-y[0]).map(v=>v[1]);
 R.slug = s => (s||"").toLowerCase().trim().replace(/[^a-z0-9-]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40);
 let toastT;
