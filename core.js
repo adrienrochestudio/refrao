@@ -421,31 +421,22 @@ R.touchStreak = async function(){
   return st;
 };
 
+/* repli backward-compat : reconstruit des lignes {pt,fr} depuis l'ancien
+   modèle à plat (s.pt / s.fr). Utilisé seulement par R.sections() pour les
+   anciens documents sans `sections`. */
 R.lines = function(s){
   const pt=(s.pt||"").split("\n").map(x=>x.trim()).filter(Boolean);
   const fr=(s.fr||"").split("\n").map(x=>x.trim()).filter(Boolean);
   const n=Math.min(pt.length,fr.length);
   return Array.from({length:n},(_,i)=>({pt:pt[i],fr:fr[i]}));
 };
-R.buildLevels = function(s){
-  const lv=[]; const hasPairs=(s.pairs?.length||0)>=2; const ln=R.lines(s); const hasLines=ln.length>=1;
-  if(hasPairs){
-    lv.push({key:"flash", name:"Découverte", desc:"Cartes de vocabulaire", type:"flash"});
-    lv.push({key:"mcq",   name:"Reconnaître", desc:"Trouve la traduction", type:"mcq"});
-    lv.push({key:"match", name:"Associer",   desc:"Relie les paires", type:"match"});
-    lv.push({key:"write", name:"Écrire",     desc:"Tape la traduction", type:"write"});
-  }
-  if(hasLines && (s.pairs?.length||0)>=1){
-    if(ln.some(l=>l.pt.split(/\s+/).length>=2)) lv.push({key:"build", name:"Phrases", desc:"Reconstruis le vers", type:"build"});
-    if(hasPairs) lv.push({key:"cloze", name:"Texte à trous", desc:"Complète le vers", type:"cloze"});
-    lv.push({key:"master", name:"Maîtrise", desc:"Le vers en entier", type:"master"});
-  }
-  return lv;
-};
-R.songProgressPct = function(s, prog){
-  const lv=R.buildLevels(s); if(!lv.length) return 0;
-  const done=(prog.songs[s.id]?.done)||[];
-  return Math.round(done.filter(k=>lv.some(l=>l.key===k)).length / lv.length * 100);
+/* inverse de R.sections : reconstruit le texte brut (pt / fr) à partir des
+   sections, pour repeupler les zones de saisie de l'éditeur. Une ligne vide
+   sépare les sections. */
+R.sectionsToText = function(sections){
+  const secs = Array.isArray(sections) ? sections : [];
+  const join = side => secs.map(sec=>sec.lines.map(l=>l[side]||"").join("\n")).join("\n\n");
+  return { pt: join("pt"), fr: join("fr") };
 };
 
 window.R = R;
