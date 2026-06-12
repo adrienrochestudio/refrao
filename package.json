@@ -4,7 +4,10 @@
   "description": "Plateforme d'apprentissage par la musique, fondée sur une note pédagogique : input compréhensible d'abord, le refrain comme unité de mémoire, rappel actif espacé, cible de réussite 80–90 %. Multi-comptes (apprenants + gestionnaires de cohorte). Site statique (GitHub Pages) + Firebase (Auth + Firestore).",
   "main": "core.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "repository": {
     "type": "git",
@@ -20,5 +23,11 @@
   "homepage": "https://github.com/adrienrochestudio/refrao#readme",
   "dependencies": {
     "firebase-admin": "^14.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.4.1",
+    "globals": "^17.6.0",
+    "prettier": "^3.8.4"
   }
 }

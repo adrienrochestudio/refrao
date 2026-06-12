@@ -84,7 +84,7 @@
       <div class="linker">
         <div class="lead" style="margin:0 0 12px">Sélectionne un ou plusieurs mots à gauche, puis à droite, puis « Lier ». Ça crée une paire de vocabulaire (mot ou expression).</div>
         <div class="linker-cols">
-          <div class="tok-box"><div class="cap">Portugais</div><div id="tokPt"></div></div>
+          <div class="tok-box"><div class="cap" id="capPt">Langue d'origine</div><div id="tokPt"></div></div>
           <div class="tok-box"><div class="cap">Français</div><div id="tokFr"></div></div>
         </div>
         <button class="btn btn-sm" onclick="linkSelection()" style="margin-bottom:14px">
@@ -115,6 +115,7 @@ async function load(profile){
   PROFILE=profile;
   R.mountChrome("bank");
   $("#edLang").innerHTML=R.LANGS.map(l=>`<option value="${l.code}">${l.label}</option>`).join("");
+  $("#edLang").onchange=()=>{ $("#capPt").textContent=R.langLabel($("#edLang").value); };
   $("#edCefr").innerHTML=R.CEFR.map(c=>`<option value="${c}">${c} — bande ${R.bandOf(c)} (${R.bandName(R.bandOf(c))})</option>`).join("");
   $("#edCefr").onchange=()=>{ $("#bandHint").textContent="Bande "+R.bandOf($("#edCefr").value)+" — "+R.bandName(R.bandOf($("#edCefr").value)); };
   $("#edGenre").innerHTML=`<option value="">— choisir —</option>`+R.GENRES.map(g=>`<option value="${g}">${g}</option>`).join("");
@@ -207,7 +208,7 @@ function renderBank(){
       ${s.tags?`<div class="tags">${R.esc(s.tags)}</div>`:""}
       <div class="meta">
         <span><span class="v">${s.pairs?.length||0}</span> mots</span>
-        <span><span class="v">${(s.pt||"").split("\n").filter(Boolean).length}</span> vers</span>
+        <span><span class="v">${R.sections(s).reduce((n,sec)=>n+sec.lines.length,0)}</span> vers</span>
         ${s.cefr?`<span class="v">${R.esc(s.cefr)}</span>`:""}
       </div>
     </div>`;
@@ -273,12 +274,16 @@ function openEditor(id){
   $("#edArtist").value=s?s.artist:"";
   $("#edDeezer").value=s?s.deezer:"";
   $("#edLang").value = s? (s.lang||"pt") : ((PROFILE&&PROFILE.lang)||"pt");
+  $("#capPt").textContent=R.langLabel($("#edLang").value);
   $("#edCefr").value = s? (s.cefr||"A2") : "A2";
   $("#bandHint").textContent="Bande "+R.bandOf($("#edCefr").value)+" — "+R.bandName(R.bandOf($("#edCefr").value));
   $("#edGenre").value = s? (s.genre||"") : "";
   $("#edTags").value = s? (s.tags||"") : "";
-  $("#edPt").value=s?s.pt:"";
-  $("#edFr").value=s?s.fr:"";
+  // Paroles : reconstruites depuis `sections` (source unique). Repli sur l'ancien
+  // modèle à plat pt/fr pour les chansons créées avant l'unification.
+  const txt = (s && Array.isArray(s.sections) && s.sections.length) ? R.sectionsToText(s.sections) : {pt:s?.pt||"", fr:s?.fr||""};
+  $("#edPt").value=txt.pt;
+  $("#edFr").value=txt.fr;
   edit.sections = s && Array.isArray(s.sections) ? JSON.parse(JSON.stringify(s.sections)) : null;
   renderStruct();
   rebuildTokens(); renderPairs(); showDzInfo();
@@ -349,9 +354,10 @@ async function saveSong(){
   if(!title){ R.toast("Donne un titre à la chanson"); return; }
   const cefr=$("#edCefr").value;
   const sections = (edit.sections && edit.sections.length) ? edit.sections : R.autoSections($("#edPt").value, $("#edFr").value);
+  // `sections` est la source unique des paroles ; on n'écrit plus pt/fr à plat (dette retirée).
   const song={ id:edit.id||R.uid(), title, artist:$("#edArtist").value.trim(), lang:$("#edLang").value,
     cefr, band:R.bandOf(cefr), genre:$("#edGenre").value, tags:$("#edTags").value.trim(), sections,
-    deezer:$("#edDeezer").value.trim(), pt:$("#edPt").value.trim(), fr:$("#edFr").value.trim(),
+    deezer:$("#edDeezer").value.trim(),
     pairs:edit.pairs, cover:edMeta.cover||"", preview:edMeta.preview||"" };
   const store=await R.getStore();
   await store.saveSong(song);
