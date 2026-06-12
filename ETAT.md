@@ -63,12 +63,19 @@
 - **Fournisseurs Auth activés** : Email/mot de passe + Anonyme.
 - Pour annuler App Check en cas de souci : console App Check > service > "Annuler l'application".
 
-## 8. Provisionner un gestionnaire (procédure)
+## 8. Provisionner un gestionnaire + sa licence (procédure)
 Prérequis : `tools/serviceAccount.json` présent (clé privée Firebase, ignorée par git), `npm install` fait.
 ```
-node tools/set-manager.mjs --email <email> --password <6+ si compte à créer> --cohort <code> --lang pt --level A2
+# onboarding complet d'un client B2B :
+node tools/set-manager.mjs --email <email> --password <6+ si compte à créer> \
+     --cohort <code> --lang pt --level A2 \
+     --plan school --until 2027-09-01 --seats 30 --school "Collège Hugo"
+# renouvellement : relancer avec un nouveau --until (date YYYY-MM-DD ou nb de jours, défaut 365)
+node tools/set-manager.mjs --email <email> --until 2028-09-01
 ```
-Le gestionnaire doit se reconnecter pour activer le claim. C'est ainsi qu'on intègre un client B2B.
+Pose le claim `role:manager` + la licence (claims `plan`/`validUntil` + doc `licenses/{uid}`). Le gestionnaire doit se reconnecter pour activer ses claims. La licence est le **levier B2B** : `validUntil` dépassé => écritures bloquées par les règles.
+
+> ⚠️ **Ordre de déploiement obligatoire** (sinon lockout) : les règles exigent désormais une licence valide pour les écritures gestionnaire. AVANT de publier `firestore.rules`, reprovisionner CHAQUE gestionnaire existant avec `set-manager.mjs --until ...` (aujourd'hui : `adrien.etks@gmail.com`), puis le faire reconnecter. Ensuite seulement, publier les règles (§9).
 
 ## 9. Workflow Git
 - Toujours une branche `chantier/...`, jamais de commit direct sur `main`.
@@ -83,12 +90,15 @@ Le gestionnaire doit se reconnecter pour activer le claim. C'est ainsi qu'on int
 - Sécurité Phase 1 + 3 durcissements : voir section 7 (tout déployé et vérifié en prod).
 - Workflow Git + déploiement opérationnels.
 - **Phase 2 - assainissement** : modèle de paroles unifié sur `sections` ; code mort retiré (`R.buildLevels`, `R.songProgressPct`) ; libellés éditeur dynamiques selon la langue ; ESLint + Prettier en place (devDeps, scripts `lint`/`format`).
-- **Validation de schéma fine** dans `firestore.rules` (champs en liste blanche `hasOnly`, types, tailles bornées) pour `users`/`cohorts`/`songs`/`progress`/`cards`. Ajout de `firebase.json` + `.firebaserc` (déploiement des règles en une commande). ⚠️ **À PUBLIER** : les règles ne sont actives qu'une fois déployées (voir §9).
+- **Validation de schéma fine** dans `firestore.rules` (champs en liste blanche `hasOnly`, types, tailles bornées) pour `users`/`cohorts`/`songs`/`progress`/`cards`. Ajout de `firebase.json` + `.firebaserc` (déploiement des règles en une commande).
+- **Socle B2B - backend de licence** : entitlements autoritatifs serveur via custom claims (`plan`, `validUntil`) ; règles conditionnant les écritures gestionnaire à une licence valide (expiration = accès coupé) ; collection `licenses/{uid}` ; `set-manager.mjs` étendu (onboarding + renouvellement) ; bandeau de licence dans l'espace gestion ; onboarding nettoyé (accès sur demande, inscription libre-service retirée). Paiements (Stripe) volontairement différés.
+- ⚠️ **À PUBLIER + reprovisionner** : les règles (`firestore.rules` couvre maintenant validation de schéma ET licence) ne sont actives qu'une fois déployées. Respecter l'ordre du §8 (reprovisionner les gestionnaires AVANT de publier) sinon lockout.
 
 ## 11. Ce qui RESTE (par priorité)
-- **Reliquat Phase 2** (optionnel) : migration ponctuelle pour purger les `pt`/`fr` à plat des anciens docs Firestore ; envisager un reformatage Prettier global au moment de la migration framework (pas avant, pour garder le style dense actuel).
-- **Phase 3 - socle B2B** : modèle d'abonnement écoles (entitlements/licences), refonte de l'onboarding gestionnaire (l'inscription libre-service est désormais bloquée par les règles, voulu), comptes persistants, conformité RGPD (données d'apprenants possiblement mineurs), cadrage des droits sur les paroles (œuvres protégées).
-- **Phase 4 - migration framework** : build + framework + CI/CD, progressivement.
+- **Décision séquencement actée** : backend B2B durable d'abord (fait), puis migration framework + TypeScript, puis refonte produit (parcours/imports/accueil) sur le nouveau socle. Marché francophone d'abord. Ne PAS refondre l'UX en vanilla. Voir mémoire `refrao-roadmap-decisions`.
+- **Reliquat Phase 2** (optionnel) : migration ponctuelle pour purger les `pt`/`fr` à plat des anciens docs Firestore ; reformatage Prettier global au moment de la migration framework (pas avant).
+- **Socle B2B - suite** : conformité RGPD (données d'apprenants possiblement mineurs) et cadrage des droits sur les paroles (œuvres protégées) = bloquants de COMMERCIALISATION, à mener en parallèle. Plus tard : paiements (Stripe, exige un backend payant), formulaire de contact, enforcement dur des sièges, vraie page d'accueil/offre.
+- **Phase 4 - migration framework** : build + framework (SvelteKit / Astro / Next à trancher) + TypeScript + CI/CD, progressivement. Déclenchée par l'envie de refonte produit.
 - **Divers** : test de niveau (`leveltest.js`) à calibrer ; envisager un domaine personnalisé ; "Connexion Google" pour les profs (penser domaines Auth + App Check).
 
 ## 12. Comment reprendre dans un nouveau chat
