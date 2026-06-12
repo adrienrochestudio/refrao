@@ -35,15 +35,23 @@
 - Faille d'élévation de privilège fermée ; isolation multi-tenant en place.
 - Site en ligne : https://adrienrochestudio.github.io/refrao/ (pas de domaine perso).
 
-## Prochaine étape immédiate (au choix)
-- VÉRIF rapide : tester l'arrivée d'un apprenant (auth.html > Apprenant, code DEMO2026) pour confirmer que le flux anonyme marche sous les nouvelles règles.
-- DURCISSEMENTS restants (sans urgence) : verrouiller domaines Auth ; restreindre clé API (référents HTTP) ; App Check (tâche de code, ne pas activer l'enforcement avant d'intégrer le SDK).
-- WORKFLOW GIT : installer gh, committer la branche chantier/fondations-securite, déployer le nouveau core.js (le site en ligne tourne encore sur l'ancien).
+## Workflow Git + déploiement : FAIT (2026-06-12)
+- Homebrew + gh installés, gh authentifié (compte adrienrochestudio).
+- Travail commité en 2 commits, PR #1 fusionnée sur main, branche nettoyée.
+- Déploiement vérifié en prod : nouveau core.js en ligne (claim), admin.html en 404.
+- Le projet a désormais un vrai historique Git (fini les "Add files via upload").
 
-ATTENTION : depuis la publication, l'inscription gestionnaire en libre-service ne fonctionne plus (création de cohorte réservée aux comptes déjà manager). Voulu pour le B2B : les gestionnaires sont provisionnés. Onboarding payant = Phase 3.
+ATTENTION : depuis la publication, l'inscription gestionnaire en libre-service ne fonctionne plus (création de cohorte réservée aux comptes déjà manager). Voulu pour le B2B : les gestionnaires sont provisionnés via tools/set-manager.mjs. Onboarding payant = Phase 3.
 
-## Non commité
-Branche chantier/fondations-securite : CLAUDE.md, .gitignore, ETAT.md, firestore.rules, modif core.js, suppression admin.html, tools/set-manager.mjs. À committer/pousser quand gh sera configuré.
+## Durcissements sécurité (2026-06-12)
+- Point 1 (domaines Auth) : VÉRIFIÉ, rien à faire (la liste ne sert qu'à l'OAuth ; refrão n'utilise qu'email + anonyme). À refaire si on ajoute "Connexion Google" : ajouter adrienrochestudio.github.io.
+- Point 2 (clé API) : FAIT. Browser key restreinte aux référents HTTP https://adrienrochestudio.github.io/* (Google Cloud). Testé OK.
+- Point 3 (App Check) : EN COURS. reCAPTCHA v3 créé + enregistré dans Firebase (clé secrète côté Firebase, clé de site dans core.js). SDK App Check intégré dans core.js (init non bloquante). Reste : déployer, vérifier en monitoring, puis activer l'enforcement (Firestore + Auth).
+
+## Prochaine étape (au choix, rien d'urgent)
+- PHASE 2 : unifier le double modèle de données (sections vs pt/fr/pairs), corriger les libellés multilingues codés en dur, retirer la dette.
+- PHASE 3 : socle B2B (entitlements/licences), comptes persistants, RGPD, droits paroles.
+- PHASE 4 : migration vers un framework (build + CI/CD).
 
 ## Notes / décisions en attente
 - Validation de schéma fine dans les règles : à ajouter après l'étape 1-2 (champs et tailles autorisés).
