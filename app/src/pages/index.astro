@@ -34,16 +34,18 @@ import { withBase } from '../lib/paths';
 </Base>
 
 <script>
-  // Îlot client en TypeScript. Pour cette preuve de concept : salutation selon
-  // l'heure + rotation des sous-titres. Le branchement Firebase (stats live,
-  // CTA selon le rôle) viendra dans la tranche suivante, via le SDK npm typé.
+  // Îlot client TypeScript : salutation, rotation des sous-titres, et données
+  // dynamiques via le SDK Firebase typé (CTA selon le rôle, stats live).
+  import { onAuthProfile, getSongs, getProgress, songComplete } from '../lib/refrao';
+  import { withBase } from '../lib/paths';
+
   const greet = document.getElementById('greet');
   if (greet) {
     const h = new Date().getHours();
     greet.textContent = h < 12 ? 'bom dia' : h < 18 ? 'boa tarde' : 'boa noite';
   }
 
-  const SUBS: readonly string[] = [
+  const LEARNER_SUBS: readonly string[] = [
     'Apprends en chantant.',
     'Au rythme de tes chansons préférées.',
     'Le refrain comme point de départ.',
@@ -51,16 +53,57 @@ import { withBase } from '../lib/paths';
     'Chante, comprends, retiens.',
     'Du premier mot au refrain par cœur.'
   ];
+  const MANAGER_SUBS: readonly string[] = [
+    "Donne à tes élèves le goût d'apprendre.",
+    'Tes cohortes, tes chansons, leurs progrès.',
+    'Transforme les musiques en leçons vivantes.',
+    'Accompagne chaque apprenant à son rythme.'
+  ];
+
   const sub = document.getElementById('leadSub');
+  let subs: readonly string[] = LEARNER_SUBS;
+  let si = 0;
   if (sub) {
-    let i = 0;
     setInterval(() => {
       sub.classList.add('fade');
       setTimeout(() => {
-        i = (i + 1) % SUBS.length;
-        sub.textContent = SUBS[i] ?? SUBS[0]!;
+        si = (si + 1) % subs.length;
+        sub.textContent = subs[si] ?? subs[0]!;
         sub.classList.remove('fade');
       }, 420);
     }, 4200);
   }
+
+  const cta = document.getElementById('cta');
+  const statRow = document.getElementById('statRow');
+  const elSongs = document.getElementById('stSongs');
+  const elLearned = document.getElementById('stLearned');
+  const elXp = document.getElementById('stXp');
+
+  onAuthProfile(async ({ user, profile }) => {
+    const isManager = !!(user && profile && profile.role === 'manager');
+    if (cta) {
+      cta.setAttribute('href', !user ? withBase('auth') : isManager ? withBase('gestion') : withBase('apprendre'));
+      if (cta.firstChild && cta.firstChild.nodeType === Node.TEXT_NODE) {
+        cta.firstChild.nodeValue = isManager ? "Ouvrir l'espace gestion " : 'Commencer à apprendre ';
+      }
+    }
+    subs = isManager ? MANAGER_SUBS : LEARNER_SUBS;
+    si = 0;
+    if (sub) sub.textContent = subs[0]!;
+    if (isManager && statRow) statRow.style.display = 'none';
+
+    if (!user) return;
+    try {
+      const songs = await getSongs();
+      let scope = songs.filter(songComplete);
+      if (profile?.lang) scope = scope.filter(s => (s.lang ?? 'pt') === profile.lang);
+      const prog = await getProgress(user.uid);
+      if (elSongs) elSongs.textContent = String(scope.length);
+      if (elLearned) elLearned.textContent = String(Object.values(prog.songs ?? {}).filter(x => x.completed).length);
+      if (elXp) elXp.textContent = String((prog.recent ?? []).filter(Boolean).length);
+    } catch {
+      // En local, App Check / règles peuvent bloquer la lecture : compteurs à 0.
+    }
+  });
 </script>
