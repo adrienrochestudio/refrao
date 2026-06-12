@@ -1,0 +1,26 @@
+name: CI
+
+# Vérifie que l'app Astro (migration en cours dans app/) compile et passe le
+# type-check. Ne déploie RIEN : le site vanilla reste servi par GitHub Pages
+# tel quel. Le basculement Pages -> build Astro sera une étape déliberée.
+on:
+  push:
+    branches: [main, 'chantier/**', 'migration/**']
+  pull_request:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build

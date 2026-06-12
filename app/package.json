@@ -1,0 +1,16 @@
+{
+  "name": "refrao-web",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check"
+  },
+  "dependencies": {
+    "@astrojs/check": "^0.9.9",
+    "astro": "^6.4.6",
+    "typescript": "^6.0.3"
+  }
+}
