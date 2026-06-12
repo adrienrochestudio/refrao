@@ -93,13 +93,21 @@ Pose le claim `role:manager` + la licence (claims `plan`/`validUntil` + doc `lic
 - **Validation de schéma fine** dans `firestore.rules` (champs en liste blanche `hasOnly`, types, tailles bornées) pour `users`/`cohorts`/`songs`/`progress`/`cards`. Ajout de `firebase.json` + `.firebaserc` (déploiement des règles en une commande).
 - **Socle B2B - backend de licence** : entitlements autoritatifs serveur via custom claims (`plan`, `validUntil`) ; règles conditionnant les écritures gestionnaire à une licence valide (expiration = accès coupé) ; collection `licenses/{uid}` ; `set-manager.mjs` étendu (onboarding + renouvellement) ; bandeau de licence dans l'espace gestion ; onboarding nettoyé (accès sur demande, inscription libre-service retirée). Paiements (Stripe) volontairement différés.
 - **Règles Firestore PUBLIÉES en prod le 2026-06-12** (validation de schéma + licence), via `tools/deploy-rules.mjs`. Ruleset actif vérifié identique au fichier. Gestionnaire démo reprovisionné au préalable (pas de lockout).
+- **Migration framework DÉMARRÉE** : stack = **Astro + TypeScript** (statique, Pages, vivier React via îlots). Fondation isolée dans `app/` (le site vanilla à la racine reste en ligne, intact). Page d'accueil portée en preuve de concept (rendu vérifié identique), `style.css` réutilisé tel quel, CI build+type-check (`.github/workflows/ci.yml`). Voir §13.
 
 ## 11. Ce qui RESTE (par priorité)
 - **Décision séquencement actée** : backend B2B durable d'abord (fait), puis migration framework + TypeScript, puis refonte produit (parcours/imports/accueil) sur le nouveau socle. Marché francophone d'abord. Ne PAS refondre l'UX en vanilla. Voir mémoire `refrao-roadmap-decisions`.
 - **Reliquat Phase 2** (optionnel) : migration ponctuelle pour purger les `pt`/`fr` à plat des anciens docs Firestore ; reformatage Prettier global au moment de la migration framework (pas avant).
 - **Socle B2B - suite** : conformité RGPD (données d'apprenants possiblement mineurs) et cadrage des droits sur les paroles (œuvres protégées) = bloquants de COMMERCIALISATION, à mener en parallèle. Plus tard : paiements (Stripe, exige un backend payant), formulaire de contact, enforcement dur des sièges, vraie page d'accueil/offre.
-- **Phase 4 - migration framework** : build + framework (SvelteKit / Astro / Next à trancher) + TypeScript + CI/CD, progressivement. Déclenchée par l'envie de refonte produit.
+- **Migration framework (Astro + TS) - suite** (voir §13) : brancher Firebase via le SDK npm typé (remplacer les imports gstatic globaux de `core.js`) ; porter les autres pages (auth, apprendre, gestion, progression) en réutilisant le backend ; refondre le CSS et l'UX au passage ; puis basculer GitHub Pages sur le build Astro (étape délibérée).
 - **Divers** : test de niveau (`leveltest.js`) à calibrer ; envisager un domaine personnalisé ; "Connexion Google" pour les profs (penser domaines Auth + App Check).
+
+## 13. Migration framework (Astro + TypeScript) - état & plan
+- **Stack** : Astro + TypeScript, sortie 100% statique (pas de SSR = pas de coût serveur), `base: '/refrao'`. Choix acté (vivier React accessible via les composants îlots).
+- **Layout repo** : tout le nouveau code dans `app/` ; le site vanilla reste à la racine et continue d'être servi par GitHub Pages **tel quel** tant qu'on n'a pas basculé. `app/public/style.css` = copie transitoire du `style.css` racine (sera refondu).
+- **Commandes** (depuis `app/`) : `npm run dev` (serveur sur `/refrao/`), `npm run build`, `npm run check` (type-check). CI auto sur chaque push.
+- **Fait** : fondation + page d'accueil (preuve de concept), utilitaire `withBase()` pour les chemins.
+- **Bascule GitHub Pages** (PAS encore faite) : quand l'app aura la parité, passer la source Pages de « branche/racine » à « GitHub Actions » et déployer le build `app/dist`. Tant que ce n'est pas fait, fusionner sur `main` ne change RIEN au site en ligne.
 
 ## 12. Comment reprendre dans un nouveau chat
 1. Le chat démarre dans `~/refrao` : `CLAUDE.md` est lu automatiquement (règles permanentes).

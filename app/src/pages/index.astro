@@ -1,0 +1,66 @@
+---
+import Base from '../layouts/Base.astro';
+import { withBase } from '../lib/paths';
+---
+
+<Base title="refrão — apprendre les langues avec la musique" active="home">
+  <main class="shell">
+    <div class="landing">
+      <div class="kicker" id="greet">boa tarde</div>
+      <h1>Apprends les langues<br /><span class="em">en musique</span></h1>
+      <p class="lead-sub" id="leadSub">Apprends en chantant.</p>
+
+      <a href={withBase('auth')} class="cta" id="cta">
+        Commencer à apprendre
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg
+        >
+      </a>
+
+      <div class="stats stagger" id="statRow" style="margin-top:48px;max-width:560px;width:100%">
+        <div class="stat"><div class="n" id="stSongs">0</div><div class="l">chansons</div></div>
+        <div class="stat"><div class="n" id="stLearned">0</div><div class="l">chansons complétées</div></div>
+        <div class="stat"><div class="n" id="stXp">0</div><div class="l">bonnes réponses</div></div>
+      </div>
+    </div>
+  </main>
+</Base>
+
+<script>
+  // Îlot client en TypeScript. Pour cette preuve de concept : salutation selon
+  // l'heure + rotation des sous-titres. Le branchement Firebase (stats live,
+  // CTA selon le rôle) viendra dans la tranche suivante, via le SDK npm typé.
+  const greet = document.getElementById('greet');
+  if (greet) {
+    const h = new Date().getHours();
+    greet.textContent = h < 12 ? 'bom dia' : h < 18 ? 'boa tarde' : 'boa noite';
+  }
+
+  const SUBS: readonly string[] = [
+    'Apprends en chantant.',
+    'Au rythme de tes chansons préférées.',
+    'Le refrain comme point de départ.',
+    'Tes morceaux deviennent tes leçons.',
+    'Chante, comprends, retiens.',
+    'Du premier mot au refrain par cœur.'
+  ];
+  const sub = document.getElementById('leadSub');
+  if (sub) {
+    let i = 0;
+    setInterval(() => {
+      sub.classList.add('fade');
+      setTimeout(() => {
+        i = (i + 1) % SUBS.length;
+        sub.textContent = SUBS[i] ?? SUBS[0]!;
+        sub.classList.remove('fade');
+      }, 420);
+    }, 4200);
+  }
+</script>
