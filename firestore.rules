@@ -1,17 +1,26 @@
 rules_version = '2';
 
 /* ============================================================
-   refrão - Règles Firestore DURCIES (cible Phase 1)
+   refrão - Règles Firestore DURCIES
    ------------------------------------------------------------
-   ATTENTION : ne pas publier telles quelles sans la séquence
-   décrite dans ETAT.md. Ces règles supposent que :
+   Hypothèses (inchangées) :
      1. Le rôle "manager" est porté par un CUSTOM CLAIM serveur
-        (request.auth.token.role == 'manager'), pas par un champ
-        de document que le client pourrait écrire.
-     2. Les comptes gestionnaires sont PROVISIONNÉS (claim posé)
-        via le script Admin SDK (gratuit, exécuté en local).
+        (request.auth.token.role == 'manager'), jamais par un
+        champ de document que le client pourrait écrire.
+     2. Les comptes gestionnaires sont PROVISIONNÉS via le script
+        Admin SDK (tools/set-manager.mjs), qui contourne ces
+        règles. La validation de schéma ne s'applique donc qu'aux
+        écritures CLIENT.
      3. Le client lit le rôle depuis le claim, plus depuis le doc.
-   Publier avant d'avoir fait ça verrouillerait l'espace gestion.
+
+   Ce fichier ajoute, en plus de l'isolation multi-tenant, une
+   VALIDATION DE SCHÉMA : liste blanche des champs (hasOnly),
+   types et tailles bornées. Objectif : empêcher l'injection de
+   champs arbitraires et les écritures démesurées (quota/abus).
+   Les structures imbriquées (sections, pairs, cards, songs de
+   progression) ne sont pas validées en profondeur : les règles
+   Firestore ne savent pas itérer des listes. On borne leur type
+   et leur taille de premier niveau.
    ============================================================ */
 
 service cloud.firestore {
@@ -41,6 +50,60 @@ service cloud.firestore {
         && ownsCohort(userData.cohortId);
     }
 
+    /* ---------- Validation de schéma (liste blanche + types + tailles) ---------- */
+
+    function validUserData(d) {
+      return d.keys().hasOnly(['role','email','firstName','lastName','lang','cohortId','cefr','band','streak','createdAt'])
+        && d.role is string && (d.role == 'learner' || d.role == 'manager')
+        && (!('email' in d)     || (d.email is string     && d.email.size() <= 320))
+        && (!('firstName' in d) || (d.firstName is string && d.firstName.size() <= 100))
+        && (!('lastName' in d)  || (d.lastName is string  && d.lastName.size() <= 100))
+        && (!('lang' in d)      || (d.lang is string      && d.lang.size() <= 8))
+        && (!('cohortId' in d)  || (d.cohortId is string  && d.cohortId.size() <= 64))
+        && (!('cefr' in d)      || (d.cefr is string      && d.cefr.size() <= 4))
+        && (!('band' in d)      || (d.band is number      && d.band >= 1 && d.band <= 3))
+        && (!('streak' in d)    || d.streak is map)
+        && (!('createdAt' in d) || d.createdAt is number);
+    }
+
+    function validCohortData(d) {
+      return d.keys().hasOnly(['code','managerUid','lang','level','category','createdAt'])
+        && d.code is string && d.code.size() <= 64
+        && d.managerUid is string && d.managerUid.size() <= 128
+        && (!('lang' in d)      || (d.lang is string     && d.lang.size() <= 8))
+        && (!('level' in d)     || (d.level is string    && d.level.size() <= 4))
+        && (!('category' in d)  || (d.category is string && d.category.size() <= 64))
+        && (!('createdAt' in d) || d.createdAt is number);
+    }
+
+    function validSongData(d) {
+      return d.keys().hasOnly(['id','title','artist','lang','cefr','band','genre','tags','sections','deezer','pairs','cover','preview'])
+        && d.title is string && d.title.size() <= 200
+        && (!('id' in d)       || (d.id is string      && d.id.size() <= 64))
+        && (!('artist' in d)   || (d.artist is string  && d.artist.size() <= 200))
+        && (!('lang' in d)     || (d.lang is string    && d.lang.size() <= 8))
+        && (!('cefr' in d)     || (d.cefr is string    && d.cefr.size() <= 4))
+        && (!('band' in d)     || (d.band is number    && d.band >= 1 && d.band <= 3))
+        && (!('genre' in d)    || (d.genre is string   && d.genre.size() <= 64))
+        && (!('tags' in d)     || (d.tags is string    && d.tags.size() <= 500))
+        && (!('sections' in d) || (d.sections is list  && d.sections.size() <= 300))
+        && (!('pairs' in d)    || (d.pairs is list     && d.pairs.size() <= 2000))
+        && (!('deezer' in d)   || (d.deezer is string  && d.deezer.size() <= 2000))
+        && (!('cover' in d)    || (d.cover is string   && d.cover.size() <= 2000))
+        && (!('preview' in d)  || (d.preview is string && d.preview.size() <= 2000));
+    }
+
+    function validProgressData(d) {
+      return d.keys().hasOnly(['xp','songs','recent'])
+        && (!('xp' in d)     || d.xp is number)
+        && (!('songs' in d)  || d.songs is map)
+        && (!('recent' in d) || (d.recent is list && d.recent.size() <= 500));
+    }
+
+    function validCardsData(d) {
+      return d.keys().hasOnly(['cards']) && d.cards is map;
+    }
+
     /* ---- Utilisateurs ---- */
     match /users/{uid} {
       // Lecture d'un doc : soi-même, ou le gestionnaire de SA cohorte uniquement.
@@ -51,16 +114,18 @@ service cloud.firestore {
       // La requête doit filtrer where cohortId == <sa cohorte>, sinon Firestore refuse tout.
       allow list: if managesUserCohort(resource.data);
 
-      // Création : soi-même uniquement, et rôle FORCÉ à 'learner' (pas d'auto-élévation).
+      // Création : soi-même uniquement, rôle FORCÉ à 'learner', schéma validé.
       allow create: if isSignedIn()
         && request.auth.uid == uid
-        && request.resource.data.role == 'learner';
+        && request.resource.data.role == 'learner'
+        && validUserData(request.resource.data);
 
-      // Mise à jour : soi-même SANS changer son rôle, ou le gestionnaire de sa cohorte.
-      allow update: if isSignedIn() && (
-        (request.auth.uid == uid && request.resource.data.role == resource.data.role)
-        || managesUserCohort(resource.data)
-      );
+      // Mise à jour : soi-même SANS changer son rôle, ou le gestionnaire de sa cohorte
+      // (qui ne peut pas non plus changer le rôle). Schéma validé dans tous les cas.
+      allow update: if isSignedIn()
+        && validUserData(request.resource.data)
+        && request.resource.data.role == resource.data.role
+        && (request.auth.uid == uid || managesUserCohort(resource.data));
 
       allow delete: if isSignedIn()
         && (request.auth.uid == uid || managesUserCohort(resource.data));
@@ -72,7 +137,9 @@ service cloud.firestore {
         request.auth.uid == uid
         || managesUserCohort(get(/databases/$(database)/documents/users/$(uid)).data)
       );
-      allow write: if isSignedIn() && request.auth.uid == uid;
+      allow create, update: if isSignedIn()
+        && request.auth.uid == uid
+        && validProgressData(request.resource.data);
     }
 
     /* ---- Cartes (répétition espacée) ---- */
@@ -81,7 +148,9 @@ service cloud.firestore {
         request.auth.uid == uid
         || managesUserCohort(get(/databases/$(database)/documents/users/$(uid)).data)
       );
-      allow write: if isSignedIn() && request.auth.uid == uid;
+      allow create, update: if isSignedIn()
+        && request.auth.uid == uid
+        && validCardsData(request.resource.data);
     }
 
     /* ---- Cohortes ---- */
@@ -92,17 +161,25 @@ service cloud.firestore {
       allow get: if true;
       allow list: if false;
 
-      // Création/modif réservée aux gestionnaires, sur leur propre uid.
-      allow create: if isManager() && request.resource.data.managerUid == request.auth.uid;
-      allow update, delete: if isManager() && resource.data.managerUid == request.auth.uid;
+      // Création/modif réservée aux gestionnaires, sur leur propre uid, schéma validé.
+      allow create: if isManager()
+        && request.resource.data.managerUid == request.auth.uid
+        && validCohortData(request.resource.data);
+      allow update: if isManager()
+        && resource.data.managerUid == request.auth.uid
+        && request.resource.data.managerUid == request.auth.uid
+        && validCohortData(request.resource.data);
+      allow delete: if isManager() && resource.data.managerUid == request.auth.uid;
     }
 
     /* ---- Chansons (catalogue commun) ---- */
     match /songs/{id} {
-      // Lecture réservée aux connectés (plus de "if true" ouvert au monde entier).
+      // Lecture réservée aux connectés.
       allow get, list: if isSignedIn();
-      // Écriture réservée aux gestionnaires.
-      allow write: if isManager();
+      // Écriture réservée aux gestionnaires, schéma validé. Catalogue partagé :
+      // tout gestionnaire peut éditer/supprimer (pas d'isolation par chanson).
+      allow create, update: if isManager() && validSongData(request.resource.data);
+      allow delete: if isManager();
     }
 
     // Tout le reste est refusé par défaut.

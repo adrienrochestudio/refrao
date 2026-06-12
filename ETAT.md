@@ -75,16 +75,17 @@ Le gestionnaire doit se reconnecter pour activer le claim. C'est ainsi qu'on int
 - PR via `gh`, fusion sur `main` => GitHub Pages redéploie (~1-3 min).
 - `gh` installé et authentifié (compte adrienrochestudio).
 - Historique propre depuis le 2026-06-12 (fini les "Add files via upload").
+- **Publier les règles Firestore** (`firestore.rules` est la source de vérité ; le repo n'agit PAS sur Firebase) : soit copier-coller dans la console Firebase > Firestore > Règles (le « Rules Playground » valide la syntaxe et simule), soit via CLI `firebase deploy --only firestore:rules` (nécessite `npm i -g firebase-tools` puis `firebase login` ; gratuit, pas de Blaze). `firebase.json` + `.firebaserc` sont déjà configurés sur le projet `refrao-b6ae3`.
 
 ## 10. Ce qui est FAIT
 - Audit complet du code.
 - Fondations : `CLAUDE.md`, `.gitignore`, `ETAT.md`.
 - Sécurité Phase 1 + 3 durcissements : voir section 7 (tout déployé et vérifié en prod).
 - Workflow Git + déploiement opérationnels.
-- **Phase 2 - assainissement** (branche `chantier/phase2-assainissement`, à fusionner) : modèle de paroles unifié sur `sections` ; code mort retiré (`R.buildLevels`, `R.songProgressPct`) ; libellés éditeur dynamiques selon la langue ; ESLint + Prettier en place (devDeps, scripts `lint`/`format`).
+- **Phase 2 - assainissement** : modèle de paroles unifié sur `sections` ; code mort retiré (`R.buildLevels`, `R.songProgressPct`) ; libellés éditeur dynamiques selon la langue ; ESLint + Prettier en place (devDeps, scripts `lint`/`format`).
+- **Validation de schéma fine** dans `firestore.rules` (champs en liste blanche `hasOnly`, types, tailles bornées) pour `users`/`cohorts`/`songs`/`progress`/`cards`. Ajout de `firebase.json` + `.firebaserc` (déploiement des règles en une commande). ⚠️ **À PUBLIER** : les règles ne sont actives qu'une fois déployées (voir §9).
 
 ## 11. Ce qui RESTE (par priorité)
-- **Durcissement avancé** : validation de schéma fine dans `firestore.rules` (champs et tailles autorisés). À faire APRÈS Phase 2 (valide le modèle `sections` désormais stable, une seule fois).
 - **Reliquat Phase 2** (optionnel) : migration ponctuelle pour purger les `pt`/`fr` à plat des anciens docs Firestore ; envisager un reformatage Prettier global au moment de la migration framework (pas avant, pour garder le style dense actuel).
 - **Phase 3 - socle B2B** : modèle d'abonnement écoles (entitlements/licences), refonte de l'onboarding gestionnaire (l'inscription libre-service est désormais bloquée par les règles, voulu), comptes persistants, conformité RGPD (données d'apprenants possiblement mineurs), cadrage des droits sur les paroles (œuvres protégées).
 - **Phase 4 - migration framework** : build + framework + CI/CD, progressivement.
