@@ -99,6 +99,7 @@ class LocalStore{
   async listLearners(){ return []; }
   async getCards(uid){ return JSON.parse(localStorage.getItem("refrao_cards_"+uid)||'{"cards":{}}'); }
   async saveCards(uid,o){ localStorage.setItem("refrao_cards_"+uid, JSON.stringify(o)); }
+  async getLicense(){ return {plan:"local", status:"active", seats:999, validUntil:Date.now()+3650*864e5}; }
 }
 class FirebaseStore{
   constructor(db,f){ this.db=db; this.f=f; }
@@ -120,6 +121,7 @@ class FirebaseStore{
   }
   async getCards(uid){ const d=await this.f.getDoc(this._d("cards",uid)); return d.exists()?d.data():{cards:{}}; }
   async saveCards(uid,o){ await this.f.setDoc(this._d("cards",uid), o); }
+  async getLicense(uid){ const d=await this.f.getDoc(this._d("licenses",uid)); return d.exists()?d.data():null; }
 }
 
 /* ---- app Firebase partagée ---- */
@@ -162,7 +164,7 @@ R.getStore = function(){
    AUTHENTIFICATION + PROFIL (rôle, langue, cohorte)
    ============================================================ */
 R.PROGRESS_ID = "local";
-let _authP, _user=null, _profile=null, _cbs=[], _authReady=false;
+let _authP, _user=null, _profile=null, _cbs=[], _authReady=false, _ent=null;
 
 const LOCAL_PROFILE = {role:"manager", lang:"pt", cohortId:"local", email:"local@refrao"};
 
@@ -178,13 +180,15 @@ function fbAuth(){
         R.PROGRESS_ID=u.uid;
         const store=await R.getStore();
         _profile=await store.getUser(u.uid);
-        // Rôle AUTORITATIF depuis le custom claim serveur (jamais falsifiable par le client).
-        // S'il existe, il prime sur le champ role du document. Voir tools/set-manager.mjs.
+        // Rôle ET entitlement AUTORITATIFS depuis les custom claims serveur
+        // (jamais falsifiables par le client). Le claim prime sur le doc.
+        // Voir tools/set-manager.mjs (provisioning + licence B2B).
         try{
           const tok=await u.getIdTokenResult();
           if(tok.claims.role){ _profile=_profile||{}; _profile.role=tok.claims.role; }
-        }catch(e){}
-      }else{ _profile=null; R.PROGRESS_ID="anon"; }
+          _ent = { plan: tok.claims.plan||null, validUntil: tok.claims.validUntil||null };
+        }catch(e){ _ent=null; }
+      }else{ _profile=null; _ent=null; R.PROGRESS_ID="anon"; }
       _authReady=true;
       _cbs.forEach(cb=>{try{cb(_user,_profile);}catch(e){}});
     });
@@ -203,6 +207,15 @@ R.onAuthProfile = function(cb){
 R.user = ()=>_user;
 R.profile = ()=>_profile;
 
+/* entitlement B2B (depuis les claims serveur) : {plan, validUntil} ou null */
+R.entitlement = ()=>_ent;
+/* licence valide ? (gestionnaire avec validUntil dans le futur). En mode local/dev,
+   toujours vrai. C'est aussi enforcé côté serveur dans firestore.rules. */
+R.licenseValid = function(){
+  if(!R.AUTH_ENABLED) return true;
+  return !!(_ent && _ent.validUntil && Date.now() < _ent.validUntil);
+};
+
 R.login = async function(email,pw){
   if(!R.AUTH_ENABLED){ R.toast("Connexion réelle nécessite Firebase"); return; }
   const {auth,m}=await fbAuth();
@@ -213,54 +226,10 @@ R.logout = async function(){
   const {auth,m}=await fbAuth(); await m.signOut(auth);
 };
 
-/* inscription : opts = {email, pw, role, lang, cohortCode?} ; pour manager: cohortCode = identifiant choisi */
-R.signup = async function(opts){
-  if(!R.AUTH_ENABLED) throw new Error("Firebase requis");
-  const {auth,m}=await fbAuth();
-  const store=await R.getStore();
-
-  if(opts.role==="manager"){
-    const code=R.slug(opts.cohortCode);
-    if(code.length<3) throw new Error("Identifiant de cohorte trop court (3+ caractères, lettres/chiffres/tirets).");
-    const existing=await store.getCohort(code);
-    if(existing) throw new Error("Cet identifiant de cohorte est déjà pris.");
-    const cred=await m.createUserWithEmailAndPassword(auth, opts.email, opts.pw);
-    const uid=cred.user.uid;
-    await store.setCohort(code, {code, managerUid:uid, lang:opts.lang||"pt", level:"A2", category:"", createdAt:Date.now()});
-    await store.setUser(uid, {role:"manager", email:opts.email, lang:opts.lang||"pt", cohortId:code, createdAt:Date.now()});
-  }else{
-    let code="";
-    if(opts.cohortCode && opts.cohortCode.trim()){
-      code=R.slug(opts.cohortCode);
-      const c=await store.getCohort(code);
-      if(!c) throw new Error("Ce code de cohorte n'existe pas.");
-    }
-    const cred=await m.createUserWithEmailAndPassword(auth, opts.email, opts.pw);
-    const cefr=opts.cefr||"A2";
-    await store.setUser(cred.user.uid, {role:"learner", email:opts.email, lang:opts.lang||"en", cohortId:code, cefr, band:R.bandOf(cefr), streak:{count:0,last:null,freezes:2}, createdAt:Date.now()});
-  }
-  return {role:opts.role};
-};
-
-/* compléter un compte déjà connecté mais sans profil (ex : ancien compte) */
-R.completeProfile = async function(opts){
-  if(!_user) throw new Error("Non connecté");
-  const store=await R.getStore();
-  if(opts.role==="manager"){
-    const code=R.slug(opts.cohortCode);
-    if(code.length<3) throw new Error("Identifiant de cohorte trop court (3+ caractères).");
-    if(await store.getCohort(code)) throw new Error("Cet identifiant de cohorte est déjà pris.");
-    await store.setCohort(code, {code, managerUid:_user.uid, lang:opts.lang||"pt", level:"A2", category:"", createdAt:Date.now()});
-    await store.setUser(_user.uid, {role:"manager", email:_user.email, lang:opts.lang||"pt", cohortId:code, createdAt:Date.now()});
-  }else{
-    let code="";
-    if(opts.cohortCode && opts.cohortCode.trim()){ code=R.slug(opts.cohortCode); if(!await store.getCohort(code)) throw new Error("Ce code de cohorte n'existe pas."); }
-    const cefr=opts.cefr||"A2";
-    await store.setUser(_user.uid, {role:"learner", email:_user.email, lang:opts.lang||"en", cohortId:code, cefr, band:R.bandOf(cefr), streak:{count:0,last:null,freezes:2}, createdAt:Date.now()});
-  }
-  _profile=await store.getUser(_user.uid);
-  return {role:opts.role};
-};
+/* NB : pas d'inscription gestionnaire libre-service. Les comptes gestionnaires
+   (clients B2B) sont provisionnés côté serveur via tools/set-manager.mjs (rôle +
+   licence par custom claim). Les règles Firestore bloquent toute auto-élévation.
+   Les apprenants rejoignent sans mot de passe via R.joinAsLearner ci-dessous. */
 
 /* connexion apprenant SANS mot de passe : code cohorte + prénom + nom + niveau (auth anonyme) */
 R.joinAsLearner = async function({code, firstName, lastName, cefr}){

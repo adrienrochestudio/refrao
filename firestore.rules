@@ -50,6 +50,15 @@ service cloud.firestore {
         && ownsCohort(userData.cohortId);
     }
 
+    /* Levier B2B : le gestionnaire a-t-il une licence valide (non expirée) ?
+       Le claim `validUntil` (ms epoch) est posé par le provisioning Admin SDK
+       (tools/set-manager.mjs). Licence absente ou expirée => écritures bloquées. */
+    function hasValidLicense() {
+      return isManager()
+        && request.auth.token.validUntil is number
+        && request.time.toMillis() < request.auth.token.validUntil;
+    }
+
     /* ---------- Validation de schéma (liste blanche + types + tailles) ---------- */
 
     function validUserData(d) {
@@ -121,11 +130,12 @@ service cloud.firestore {
         && validUserData(request.resource.data);
 
       // Mise à jour : soi-même SANS changer son rôle, ou le gestionnaire de sa cohorte
-      // (qui ne peut pas non plus changer le rôle). Schéma validé dans tous les cas.
+      // (licence valide requise, rôle inchangé). Schéma validé dans tous les cas.
       allow update: if isSignedIn()
         && validUserData(request.resource.data)
         && request.resource.data.role == resource.data.role
-        && (request.auth.uid == uid || managesUserCohort(resource.data));
+        && (request.auth.uid == uid
+            || (managesUserCohort(resource.data) && hasValidLicense()));
 
       allow delete: if isSignedIn()
         && (request.auth.uid == uid || managesUserCohort(resource.data));
@@ -161,14 +171,15 @@ service cloud.firestore {
       allow get: if true;
       allow list: if false;
 
-      // Création/modif réservée aux gestionnaires, sur leur propre uid, schéma validé.
-      allow create: if isManager()
+      // Création/modif réservée aux gestionnaires à licence valide, sur leur propre uid.
+      allow create: if hasValidLicense()
         && request.resource.data.managerUid == request.auth.uid
         && validCohortData(request.resource.data);
-      allow update: if isManager()
+      allow update: if hasValidLicense()
         && resource.data.managerUid == request.auth.uid
         && request.resource.data.managerUid == request.auth.uid
         && validCohortData(request.resource.data);
+      // Suppression possible même licence expirée (nettoyage de ses propres données).
       allow delete: if isManager() && resource.data.managerUid == request.auth.uid;
     }
 
@@ -176,10 +187,19 @@ service cloud.firestore {
     match /songs/{id} {
       // Lecture réservée aux connectés.
       allow get, list: if isSignedIn();
-      // Écriture réservée aux gestionnaires, schéma validé. Catalogue partagé :
-      // tout gestionnaire peut éditer/supprimer (pas d'isolation par chanson).
-      allow create, update: if isManager() && validSongData(request.resource.data);
+      // Écriture réservée aux gestionnaires à licence valide, schéma validé.
+      // Catalogue partagé : tout gestionnaire peut éditer (pas d'isolation par chanson).
+      allow create, update: if hasValidLicense() && validSongData(request.resource.data);
+      // Suppression possible même licence expirée.
       allow delete: if isManager();
+    }
+
+    /* ---- Licences B2B (entitlements) ---- */
+    match /licenses/{uid} {
+      // Le gestionnaire lit SA propre licence (affichage plan / expiration).
+      allow get: if isSignedIn() && request.auth.uid == uid;
+      // Écriture réservée au provisioning Admin SDK (qui contourne ces règles).
+      allow list, write: if false;
     }
 
     // Tout le reste est refusé par défaut.
