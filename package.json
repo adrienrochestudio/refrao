@@ -1,0 +1,24 @@
+{
+  "name": "refrao",
+  "version": "1.0.0",
+  "description": "Plateforme d'apprentissage par la musique, fondée sur une note pédagogique : input compréhensible d'abord, le refrain comme unité de mémoire, rappel actif espacé, cible de réussite 80–90 %. Multi-comptes (apprenants + gestionnaires de cohorte). Site statique (GitHub Pages) + Firebase (Auth + Firestore).",
+  "main": "core.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adrienrochestudio/refrao.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/adrienrochestudio/refrao/issues"
+  },
+  "homepage": "https://github.com/adrienrochestudio/refrao#readme",
+  "dependencies": {
+    "firebase-admin": "^14.0.0"
+  }
+}

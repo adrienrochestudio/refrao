@@ -1,0 +1,26 @@
+# Secrets et config locale (ne JAMAIS committer)
+.env
+.env.*
+*.key
+*.pem
+serviceAccount*.json
+firebase-adminsdk*.json
+.firebase/
+.firebaserc.local
+
+# Dépendances (si build introduit plus tard)
+node_modules/
+dist/
+build/
+.cache/
+
+# Outils / OS
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+
+# Éditeurs
+.vscode/
+.idea/
+*.swp

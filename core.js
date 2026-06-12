@@ -162,6 +162,12 @@ function fbAuth(){
         R.PROGRESS_ID=u.uid;
         const store=await R.getStore();
         _profile=await store.getUser(u.uid);
+        // Rôle AUTORITATIF depuis le custom claim serveur (jamais falsifiable par le client).
+        // S'il existe, il prime sur le champ role du document. Voir tools/set-manager.mjs.
+        try{
+          const tok=await u.getIdTokenResult();
+          if(tok.claims.role){ _profile=_profile||{}; _profile.role=tok.claims.role; }
+        }catch(e){}
       }else{ _profile=null; R.PROGRESS_ID="anon"; }
       _authReady=true;
       _cbs.forEach(cb=>{try{cb(_user,_profile);}catch(e){}});
