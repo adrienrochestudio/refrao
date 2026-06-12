@@ -1,64 +1,96 @@
-# ETAT.md - Suivi d'avancement refrão
+# ETAT.md - Synthèse du projet refrão
 
-> Fichier de reprise entre les chats. À mettre à jour en fin de session.
-> Voir `CLAUDE.md` pour les règles permanentes.
+> Document de reprise. À lire en début de chat pour reprendre le travail.
+> Règles permanentes : voir `CLAUDE.md` (lu automatiquement par Claude).
+> Dernière mise à jour : 2026-06-12.
 
-## Dernière mise à jour
-2026-06-12 - Audit + fondations + Phase 1 (code prêt, déploiement Firebase à faire).
+---
 
-## Branche de travail
-`chantier/fondations-securite` (rien n'est encore poussé ni fusionné).
+## 1. Le projet en une phrase
+**refrão** : plateforme d'apprentissage des langues par la musique (le refrain comme unité de mémoire, répétition espacée, CEFR, cible de réussite 80-90 %). En cours de transformation d'un prototype étudiant vers une **entreprise**.
 
-## Fait
-- Audit complet du code (9 fichiers lus).
-- Créé `CLAUDE.md` (règles permanentes), `.gitignore`, ce `ETAT.md`.
-- Créé `firestore.rules` : version durcie cible (NON déployée, voir séquence ci-dessous).
-- `core.js` : le rôle est désormais lu depuis le custom claim serveur (infalsifiable) ; il prime sur le champ du document. Rétrocompatible tant que les règles ne sont pas publiées.
-- Créé `tools/set-manager.mjs` : script de provisioning gratuit (pose le claim role:manager, crée la cohorte/le doc).
-- Supprimé `admin.html` (code mort cassé, référencé nulle part).
+## 2. Vision & modèle économique
+- **Premier business : B2B**, abonnement gestionnaires / écoles. Les enseignants paient pour gérer des cohortes ; les apprenants accèdent gratuitement via un code de cohorte.
+- **Cap technique long terme** : migration progressive du site statique actuel vers une vraie application (build + framework), sans surcoût prématuré.
+- **Priorités permanentes** : sécurité maximale, coûts minimaux et repoussés, organisation sûre, professionnalisme maximal.
 
-## Failles identifiées (rappel, détail dans l'audit)
-1. CRITIQUE - élévation de privilège : client peut se déclarer `manager`.
-2. ÉLEVÉ - pas d'isolation multi-tenant : un gestionnaire lit les données d'autres cohortes.
-3. ÉLEVÉ - cohorts énumérables publiquement + création libre.
-4. ÉLEVÉ - aucune validation de schéma.
-5. MOYEN - pas d'App Check ; clé API et domaines Auth non verrouillés.
-6. MOYEN - `admin.html` mort et cassé, à supprimer.
-7. DETTE - double modèle de données, libellés multilingues codés en dur, leveltest stub.
-8. JURIDIQUE - RGPD (apprenants mineurs), droits sur les paroles.
+## 3. Stack & hébergement
+- Front : HTML / CSS / JS **vanilla**, aucun build, aucune dépendance npm côté site.
+- Backend : **Firebase** (Auth + Firestore), projet `refrao-b6ae3`, plan **Spark (gratuit)**.
+- Hébergement : **GitHub Pages**, repo public `adrienrochestudio/refrao` (branche `main`, fichiers à la racine).
+- Outil de dev : `firebase-admin` (npm, en local) pour le provisioning. `node_modules/` ignoré par git.
 
-## Phase 1 sécurité : DÉPLOYÉE ET VÉRIFIÉE (2026-06-12) - COMPLÈTE
-- Provisioning FAIT : compte adrien.etks@gmail.com, claim role:manager, cohorte demo2026 (pt, A2), uid DoB6EYKcJ5N5iPjbzGTwUyN8D2h2.
-- Règles Firestore durcies PUBLIÉES en prod.
-- Fournisseurs Auth activés : Email/mot de passe + Anonyme.
-- VÉRIFIÉ en prod : connexion gestionnaire OK + arrivée apprenant (code demo2026) OK.
-- Faille d'élévation de privilège fermée ; isolation multi-tenant en place.
-- Site en ligne : https://adrienrochestudio.github.io/refrao/ (pas de domaine perso).
+## 4. URLs & accès clés
+- Site en ligne : https://adrienrochestudio.github.io/refrao/
+- Connexion gestionnaire : https://adrienrochestudio.github.io/refrao/auth.html (onglet Gestionnaire)
+- Repo : https://github.com/adrienrochestudio/refrao
+- Pas de domaine personnalisé (à acheter plus tard).
+- Compte gestionnaire de démo : `adrien.etks@gmail.com` (mot de passe connu d'Adrien, non stocké ici), uid `DoB6EYKcJ5N5iPjbzGTwUyN8D2h2`, cohorte `demo2026` (pt, A2).
 
-## Workflow Git + déploiement : FAIT (2026-06-12)
-- Homebrew + gh installés, gh authentifié (compte adrienrochestudio).
-- Travail commité en 2 commits, PR #1 fusionnée sur main, branche nettoyée.
-- Déploiement vérifié en prod : nouveau core.js en ligne (claim), admin.html en 404.
-- Le projet a désormais un vrai historique Git (fini les "Add files via upload").
+## 5. Architecture des fichiers
+| Fichier | Rôle |
+|---|---|
+| `index.html` | Accueil |
+| `auth.html` | Connexion (apprenant sans mot de passe / gestionnaire email+mdp) |
+| `apprendre.html` | Coquille apprenant (révision + chansons + parcours) |
+| `gestion.html` | Espace gestionnaire (éditeur de chansons + tableau cohorte) |
+| `progression.html` | Progression personnelle de l'apprenant |
+| `core.js` | Config Firebase, auth/rôles (via custom claim), cohortes, CEFR/bandes, structure refrain/couplets, App Check |
+| `srs.js` | Moteur de répétition espacée |
+| `exercises.js` | Activités (découverte, cloze adaptatif, révision) |
+| `learn.js` | Pilotage : langue, choix de chanson, parcours |
+| `leveltest.js` | Test de niveau (STUB non calibré, à refaire) |
+| `style.css` | Design (sombre, bleu électrique) |
+| `firestore.rules` | Règles Firestore durcies (source de vérité, déjà publiées) |
+| `tools/set-manager.mjs` | Provisioning d'un gestionnaire via Admin SDK |
 
-ATTENTION : depuis la publication, l'inscription gestionnaire en libre-service ne fonctionne plus (création de cohorte réservée aux comptes déjà manager). Voulu pour le B2B : les gestionnaires sont provisionnés via tools/set-manager.mjs. Onboarding payant = Phase 3.
+## 6. Modèle de données (Firestore)
+- `users/{uid}` : `{ role, email|firstName/lastName, lang, cohortId, cefr, band, streak, createdAt }`
+- `cohorts/{code}` : `{ code, managerUid, lang, level, category, createdAt }`
+- `songs/{id}` : `{ title, artist, lang, cefr, band, genre, tags, sections:[{type, lines:[{pt,fr}]}], deezer, cover, preview, pt, fr, pairs }`
+- `progress/{uid}` : `{ songs:{[id]:{discovered, shadow, completed, full, clozeLevel}}, recent:[0/1] }`
+- `cards/{uid}` : `{ cards:{[cardId]:{type, text, trad, songId, sectionType, streak, lapses, state, due}} }`
+- NB : double modèle (ancien `pt`/`fr`/`pairs` à plat ET nouveau `sections`) cohabite = dette à unifier.
 
-## Durcissements sécurité (2026-06-12)
-- Point 1 (domaines Auth) : VÉRIFIÉ, rien à faire (la liste ne sert qu'à l'OAuth ; refrão n'utilise qu'email + anonyme). À refaire si on ajoute "Connexion Google" : ajouter adrienrochestudio.github.io.
-- Point 2 (clé API) : FAIT. Browser key restreinte aux référents HTTP https://adrienrochestudio.github.io/* (Google Cloud). Testé OK.
-- Point 3 (App Check) : EN COURS. reCAPTCHA v3 créé + enregistré dans Firebase (clé secrète côté Firebase, clé de site dans core.js). SDK App Check intégré dans core.js (init non bloquante). Reste : déployer, vérifier en monitoring, puis activer l'enforcement (Firestore + Auth).
+## 7. Sécurité - ÉTAT COMPLET (tout déployé et actif en prod, 2026-06-12)
+- **Rôle via custom claim serveur** : `isManager()` lit `request.auth.token.role`, jamais un champ que le client pourrait écrire. `users` create force `role:'learner'`. Plus d'auto-élévation possible.
+- **Isolation multi-tenant** : un gestionnaire n'accède qu'aux données des cohortes dont il est `managerUid` (fonctions `ownsCohort` / `managesUserCohort` dans les règles).
+- **Cohortes** : `get` par code exact autorisé (flux rejoindre-par-code), `list` interdit (pas d'énumération).
+- **Catalogue** : `songs` lisible seulement par les connectés.
+- **App Check (reCAPTCHA v3)** : intégré dans `core.js`, ENFORCEMENT ACTIVÉ sur Cloud Firestore + Authentication. Clé de site (publique) dans le code ; clé secrète dans Firebase. Provisioning Admin SDK exempté.
+- **Clé API** (Browser key, Google Cloud) : restreinte aux référents `https://adrienrochestudio.github.io/*`.
+- **Domaines Auth** : liste par défaut propre ; non bloquant car seuls email + anonyme sont utilisés. À compléter (ajouter le domaine) si on ajoute "Connexion Google".
+- **Fournisseurs Auth activés** : Email/mot de passe + Anonyme.
+- Pour annuler App Check en cas de souci : console App Check > service > "Annuler l'application".
 
-## Prochaine étape (au choix, rien d'urgent)
-- PHASE 2 : unifier le double modèle de données (sections vs pt/fr/pairs), corriger les libellés multilingues codés en dur, retirer la dette.
-- PHASE 3 : socle B2B (entitlements/licences), comptes persistants, RGPD, droits paroles.
-- PHASE 4 : migration vers un framework (build + CI/CD).
+## 8. Provisionner un gestionnaire (procédure)
+Prérequis : `tools/serviceAccount.json` présent (clé privée Firebase, ignorée par git), `npm install` fait.
+```
+node tools/set-manager.mjs --email <email> --password <6+ si compte à créer> --cohort <code> --lang pt --level A2
+```
+Le gestionnaire doit se reconnecter pour activer le claim. C'est ainsi qu'on intègre un client B2B.
 
-## Notes / décisions en attente
-- Validation de schéma fine dans les règles : à ajouter après l'étape 1-2 (champs et tailles autorisés).
-- Modèle d'abonnement B2B, RGPD, droits paroles : Phase 3, à cadrer avec Adrien.
-- GitHub CLI (`gh`) pas encore installé ; Homebrew absent. À faire avant le premier push.
+## 9. Workflow Git
+- Toujours une branche `chantier/...`, jamais de commit direct sur `main`.
+- PR via `gh`, fusion sur `main` => GitHub Pages redéploie (~1-3 min).
+- `gh` installé et authentifié (compte adrienrochestudio).
+- Historique propre depuis le 2026-06-12 (fini les "Add files via upload").
 
-## Backlog (phases suivantes)
-- Phase 2 : unifier le modèle de données, corriger les libellés multilingues, retirer le code mort, linter/formateur.
-- Phase 3 : socle B2B (entitlements/licences), comptes persistants, conformité RGPD, droits paroles.
-- Phase 4 : migration progressive vers un framework (build + CI/CD).
+## 10. Ce qui est FAIT
+- Audit complet du code.
+- Fondations : `CLAUDE.md`, `.gitignore`, `ETAT.md`.
+- Sécurité Phase 1 + 3 durcissements : voir section 7 (tout déployé et vérifié en prod).
+- Workflow Git + déploiement opérationnels.
+
+## 11. Ce qui RESTE (par priorité)
+- **Durcissement avancé** : validation de schéma fine dans `firestore.rules` (champs et tailles autorisés).
+- **Phase 2 - assainissement** : unifier le double modèle de données (`sections` vs `pt/fr/pairs`), corriger les libellés éditeur codés en dur "Portugais"/"Français" (cassés pour en/es/de), retirer la dette, ajouter linter/formateur.
+- **Phase 3 - socle B2B** : modèle d'abonnement écoles (entitlements/licences), refonte de l'onboarding gestionnaire (l'inscription libre-service est désormais bloquée par les règles, voulu), comptes persistants, conformité RGPD (données d'apprenants possiblement mineurs), cadrage des droits sur les paroles (œuvres protégées).
+- **Phase 4 - migration framework** : build + framework + CI/CD, progressivement.
+- **Divers** : test de niveau (`leveltest.js`) à calibrer ; envisager un domaine personnalisé ; "Connexion Google" pour les profs (penser domaines Auth + App Check).
+
+## 12. Comment reprendre dans un nouveau chat
+1. Le chat démarre dans `~/refrao` : `CLAUDE.md` est lu automatiquement (règles permanentes).
+2. Lire ce `ETAT.md` pour l'état complet.
+3. Annoncer le chantier voulu (ex : "Phase 2", "validation de schéma", "onboarding B2B").
+4. Travailler sur une branche `chantier/...`, PR, merge.
