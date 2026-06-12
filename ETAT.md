@@ -75,14 +75,14 @@ node tools/set-manager.mjs --email <email> --until 2028-09-01
 ```
 Pose le claim `role:manager` + la licence (claims `plan`/`validUntil` + doc `licenses/{uid}`). Le gestionnaire doit se reconnecter pour activer ses claims. La licence est le **levier B2B** : `validUntil` dépassé => écritures bloquées par les règles.
 
-> ⚠️ **Ordre de déploiement obligatoire** (sinon lockout) : les règles exigent désormais une licence valide pour les écritures gestionnaire. AVANT de publier `firestore.rules`, reprovisionner CHAQUE gestionnaire existant avec `set-manager.mjs --until ...` (aujourd'hui : `adrien.etks@gmail.com`), puis le faire reconnecter. Ensuite seulement, publier les règles (§9).
+> ⚠️ **Ordre obligatoire avant de (re)publier les règles** (sinon lockout) : reprovisionner CHAQUE gestionnaire existant avec `set-manager.mjs --until ...` puis le faire reconnecter, AVANT de publier `firestore.rules` (§9). Fait le 2026-06-12 pour `adrien.etks@gmail.com` (licence school jusqu'au 2027-09-01).
 
 ## 9. Workflow Git
 - Toujours une branche `chantier/...`, jamais de commit direct sur `main`.
 - PR via `gh`, fusion sur `main` => GitHub Pages redéploie (~1-3 min).
 - `gh` installé et authentifié (compte adrienrochestudio).
 - Historique propre depuis le 2026-06-12 (fini les "Add files via upload").
-- **Publier les règles Firestore** (`firestore.rules` est la source de vérité ; le repo n'agit PAS sur Firebase) : soit copier-coller dans la console Firebase > Firestore > Règles (le « Rules Playground » valide la syntaxe et simule), soit via CLI `firebase deploy --only firestore:rules` (nécessite `npm i -g firebase-tools` puis `firebase login` ; gratuit, pas de Blaze). `firebase.json` + `.firebaserc` sont déjà configurés sur le projet `refrao-b6ae3`.
+- **Publier les règles Firestore** (`firestore.rules` est la source de vérité ; ni le repo ni la fusion sur `main` n'agissent sur Firebase) : `node tools/deploy-rules.mjs` (utilise la clé de service, gratuit, pas de Blaze ; `--check` pour voir la release active sans publier). NB : `firebase deploy` via le CLI échoue car le compte de service `firebase-adminsdk` n'a pas la permission `serviceusage` ; l'outil passe directement par l'API Rules (couverte par le scope `firebase`). Alternative manuelle : copier-coller dans la console Firebase > Firestore > Règles.
 
 ## 10. Ce qui est FAIT
 - Audit complet du code.
@@ -92,7 +92,7 @@ Pose le claim `role:manager` + la licence (claims `plan`/`validUntil` + doc `lic
 - **Phase 2 - assainissement** : modèle de paroles unifié sur `sections` ; code mort retiré (`R.buildLevels`, `R.songProgressPct`) ; libellés éditeur dynamiques selon la langue ; ESLint + Prettier en place (devDeps, scripts `lint`/`format`).
 - **Validation de schéma fine** dans `firestore.rules` (champs en liste blanche `hasOnly`, types, tailles bornées) pour `users`/`cohorts`/`songs`/`progress`/`cards`. Ajout de `firebase.json` + `.firebaserc` (déploiement des règles en une commande).
 - **Socle B2B - backend de licence** : entitlements autoritatifs serveur via custom claims (`plan`, `validUntil`) ; règles conditionnant les écritures gestionnaire à une licence valide (expiration = accès coupé) ; collection `licenses/{uid}` ; `set-manager.mjs` étendu (onboarding + renouvellement) ; bandeau de licence dans l'espace gestion ; onboarding nettoyé (accès sur demande, inscription libre-service retirée). Paiements (Stripe) volontairement différés.
-- ⚠️ **À PUBLIER + reprovisionner** : les règles (`firestore.rules` couvre maintenant validation de schéma ET licence) ne sont actives qu'une fois déployées. Respecter l'ordre du §8 (reprovisionner les gestionnaires AVANT de publier) sinon lockout.
+- **Règles Firestore PUBLIÉES en prod le 2026-06-12** (validation de schéma + licence), via `tools/deploy-rules.mjs`. Ruleset actif vérifié identique au fichier. Gestionnaire démo reprovisionné au préalable (pas de lockout).
 
 ## 11. Ce qui RESTE (par priorité)
 - **Décision séquencement actée** : backend B2B durable d'abord (fait), puis migration framework + TypeScript, puis refonte produit (parcours/imports/accueil) sur le nouveau socle. Marché francophone d'abord. Ne PAS refondre l'UX en vanilla. Voir mémoire `refrao-roadmap-decisions`.
