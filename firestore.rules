@@ -1,0 +1,110 @@
+rules_version = '2';
+
+/* ============================================================
+   refrão - Règles Firestore DURCIES (cible Phase 1)
+   ------------------------------------------------------------
+   ATTENTION : ne pas publier telles quelles sans la séquence
+   décrite dans ETAT.md. Ces règles supposent que :
+     1. Le rôle "manager" est porté par un CUSTOM CLAIM serveur
+        (request.auth.token.role == 'manager'), pas par un champ
+        de document que le client pourrait écrire.
+     2. Les comptes gestionnaires sont PROVISIONNÉS (claim posé)
+        via le script Admin SDK (gratuit, exécuté en local).
+     3. Le client lit le rôle depuis le claim, plus depuis le doc.
+   Publier avant d'avoir fait ça verrouillerait l'espace gestion.
+   ============================================================ */
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /* Rôle = custom claim serveur. Le client ne peut JAMAIS se déclarer manager. */
+    function isManager() {
+      return isSignedIn() && request.auth.token.role == 'manager';
+    }
+
+    /* Le gestionnaire courant possède-t-il cette cohorte ? (isolation multi-tenant) */
+    function ownsCohort(code) {
+      return isManager()
+        && exists(/databases/$(database)/documents/cohorts/$(code))
+        && get(/databases/$(database)/documents/cohorts/$(code)).data.managerUid == request.auth.uid;
+    }
+
+    /* La cohorte de cet utilisateur appartient-elle au gestionnaire courant ? */
+    function managesUserCohort(userData) {
+      return isManager()
+        && userData.cohortId is string
+        && userData.cohortId != ''
+        && ownsCohort(userData.cohortId);
+    }
+
+    /* ---- Utilisateurs ---- */
+    match /users/{uid} {
+      // Lecture d'un doc : soi-même, ou le gestionnaire de SA cohorte uniquement.
+      allow get: if isSignedIn()
+        && (request.auth.uid == uid || managesUserCohort(resource.data));
+
+      // Liste : un gestionnaire ne peut lister QUE les apprenants d'une cohorte qu'il possède.
+      // La requête doit filtrer where cohortId == <sa cohorte>, sinon Firestore refuse tout.
+      allow list: if managesUserCohort(resource.data);
+
+      // Création : soi-même uniquement, et rôle FORCÉ à 'learner' (pas d'auto-élévation).
+      allow create: if isSignedIn()
+        && request.auth.uid == uid
+        && request.resource.data.role == 'learner';
+
+      // Mise à jour : soi-même SANS changer son rôle, ou le gestionnaire de sa cohorte.
+      allow update: if isSignedIn() && (
+        (request.auth.uid == uid && request.resource.data.role == resource.data.role)
+        || managesUserCohort(resource.data)
+      );
+
+      allow delete: if isSignedIn()
+        && (request.auth.uid == uid || managesUserCohort(resource.data));
+    }
+
+    /* ---- Progression ---- */
+    match /progress/{uid} {
+      allow get: if isSignedIn() && (
+        request.auth.uid == uid
+        || managesUserCohort(get(/databases/$(database)/documents/users/$(uid)).data)
+      );
+      allow write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    /* ---- Cartes (répétition espacée) ---- */
+    match /cards/{uid} {
+      allow get: if isSignedIn() && (
+        request.auth.uid == uid
+        || managesUserCohort(get(/databases/$(database)/documents/users/$(uid)).data)
+      );
+      allow write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    /* ---- Cohortes ---- */
+    match /cohorts/{code} {
+      // get par code exact : autorisé à tous (flux "rejoindre par code", comme un lien
+      // d'invitation ; l'apprenant lit la cohorte AVANT sa connexion anonyme).
+      // list interdit : empêche l'énumération de TOUTES les cohortes.
+      allow get: if true;
+      allow list: if false;
+
+      // Création/modif réservée aux gestionnaires, sur leur propre uid.
+      allow create: if isManager() && request.resource.data.managerUid == request.auth.uid;
+      allow update, delete: if isManager() && resource.data.managerUid == request.auth.uid;
+    }
+
+    /* ---- Chansons (catalogue commun) ---- */
+    match /songs/{id} {
+      // Lecture réservée aux connectés (plus de "if true" ouvert au monde entier).
+      allow get, list: if isSignedIn();
+      // Écriture réservée aux gestionnaires.
+      allow write: if isManager();
+    }
+
+    // Tout le reste est refusé par défaut.
+  }
+}
