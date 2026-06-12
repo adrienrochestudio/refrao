@@ -38,5 +38,36 @@ const { title = 'refrão', active } = Astro.props;
     </header>
 
     <slot />
+
+    <script>
+      // Bouton de compte (présent sur toutes les pages via ce layout).
+      import { onAuthProfile, logout, esc } from '../lib/refrao';
+      import { withBase } from '../lib/paths';
+
+      const slot = document.getElementById('authSlot');
+      if (slot) {
+        onAuthProfile(({ user, profile }) => {
+          if (user && profile) {
+            const gestion =
+              profile.role === 'manager'
+                ? `<a class="btn btn-sm" href="${withBase('gestion')}">Espace gestion</a>`
+                : '';
+            const who =
+              profile.role === 'learner' && profile.firstName
+                ? `<span class="who">${esc(profile.firstName)}</span>`
+                : '';
+            slot.innerHTML =
+              who + gestion + `<button class="btn btn-sm btn-ghost" id="logoutBtn">Déconnexion</button>`;
+            document.getElementById('logoutBtn')?.addEventListener('click', () => {
+              logout().then(() => {
+                location.href = withBase();
+              });
+            });
+          } else {
+            slot.innerHTML = `<a class="btn btn-sm" href="${withBase('auth')}">Connexion</a>`;
+          }
+        });
+      }
+    </script>
   </body>
 </html>
