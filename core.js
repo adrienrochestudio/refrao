@@ -15,6 +15,9 @@ R.FIREBASE_CONFIG = {
 R.USE_FIREBASE = !R.FIREBASE_CONFIG.apiKey.includes("COLLE");
 R.AUTH_ENABLED = R.USE_FIREBASE;
 
+/* App Check (reCAPTCHA v3) : clé de SITE publique. La clé secrète reste dans Firebase. */
+R.RECAPTCHA_SITE_KEY = "6LcudhstAAAAAOKPHV_s6emz1k5J9DNaQX7y8kt3";
+
 /* ---- langues disponibles ---- */
 R.LANGS = [
   {code:"en", label:"Anglais"},
@@ -123,7 +126,20 @@ class FirebaseStore{
 let _appP;
 function fbApp(){
   if(_appP) return _appP;
-  _appP=(async()=>{ const m=await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"); return m.initializeApp(R.FIREBASE_CONFIG); })();
+  _appP=(async()=>{
+    const m=await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
+    const app=m.initializeApp(R.FIREBASE_CONFIG);
+    // App Check : atteste que les requêtes proviennent bien de la vraie app (anti-abus/scraping).
+    // Tant que l'enforcement n'est pas activé en console, ça n'a aucun effet bloquant.
+    try{
+      const ac=await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js");
+      ac.initializeAppCheck(app, {
+        provider: new ac.ReCaptchaV3Provider(R.RECAPTCHA_SITE_KEY),
+        isTokenAutoRefreshEnabled: true
+      });
+    }catch(e){ console.error("App Check init:", e); }
+    return app;
+  })();
   return _appP;
 }
 let _storeP;
