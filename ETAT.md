@@ -47,10 +47,10 @@
 ## 6. Modèle de données (Firestore)
 - `users/{uid}` : `{ role, email|firstName/lastName, lang, cohortId, cefr, band, streak, createdAt }`
 - `cohorts/{code}` : `{ code, managerUid, lang, level, category, createdAt }`
-- `songs/{id}` : `{ title, artist, lang, cefr, band, genre, tags, sections:[{type, lines:[{pt,fr}]}], deezer, cover, preview, pt, fr, pairs }`
+- `songs/{id}` : `{ title, artist, lang, cefr, band, genre, tags, sections:[{type, lines:[{pt,fr}]}], deezer, cover, preview, pairs }`
 - `progress/{uid}` : `{ songs:{[id]:{discovered, shadow, completed, full, clozeLevel}}, recent:[0/1] }`
 - `cards/{uid}` : `{ cards:{[cardId]:{type, text, trad, songId, sectionType, streak, lapses, state, due}} }`
-- NB : double modèle (ancien `pt`/`fr`/`pairs` à plat ET nouveau `sections`) cohabite = dette à unifier.
+- NB : `sections` est la **source unique des paroles** (Phase 2 faite). L'éditeur n'écrit plus `pt`/`fr` à plat ; repli backward-compat pour lire les anciens docs (migrés vers `sections` au prochain enregistrement). `pairs` n'est PAS de la dette : couche vocabulaire active (cartes SRS, cloze, sens des mots), conservée. Dans `lines`, les clés `pt`/`fr` signifient « texte d'origine » / « glose française » quelle que soit la langue de la cohorte.
 
 ## 7. Sécurité - ÉTAT COMPLET (tout déployé et actif en prod, 2026-06-12)
 - **Rôle via custom claim serveur** : `isManager()` lit `request.auth.token.role`, jamais un champ que le client pourrait écrire. `users` create force `role:'learner'`. Plus d'auto-élévation possible.
@@ -81,10 +81,11 @@ Le gestionnaire doit se reconnecter pour activer le claim. C'est ainsi qu'on int
 - Fondations : `CLAUDE.md`, `.gitignore`, `ETAT.md`.
 - Sécurité Phase 1 + 3 durcissements : voir section 7 (tout déployé et vérifié en prod).
 - Workflow Git + déploiement opérationnels.
+- **Phase 2 - assainissement** (branche `chantier/phase2-assainissement`, à fusionner) : modèle de paroles unifié sur `sections` ; code mort retiré (`R.buildLevels`, `R.songProgressPct`) ; libellés éditeur dynamiques selon la langue ; ESLint + Prettier en place (devDeps, scripts `lint`/`format`).
 
 ## 11. Ce qui RESTE (par priorité)
-- **Durcissement avancé** : validation de schéma fine dans `firestore.rules` (champs et tailles autorisés).
-- **Phase 2 - assainissement** : unifier le double modèle de données (`sections` vs `pt/fr/pairs`), corriger les libellés éditeur codés en dur "Portugais"/"Français" (cassés pour en/es/de), retirer la dette, ajouter linter/formateur.
+- **Durcissement avancé** : validation de schéma fine dans `firestore.rules` (champs et tailles autorisés). À faire APRÈS Phase 2 (valide le modèle `sections` désormais stable, une seule fois).
+- **Reliquat Phase 2** (optionnel) : migration ponctuelle pour purger les `pt`/`fr` à plat des anciens docs Firestore ; envisager un reformatage Prettier global au moment de la migration framework (pas avant, pour garder le style dense actuel).
 - **Phase 3 - socle B2B** : modèle d'abonnement écoles (entitlements/licences), refonte de l'onboarding gestionnaire (l'inscription libre-service est désormais bloquée par les règles, voulu), comptes persistants, conformité RGPD (données d'apprenants possiblement mineurs), cadrage des droits sur les paroles (œuvres protégées).
 - **Phase 4 - migration framework** : build + framework + CI/CD, progressivement.
 - **Divers** : test de niveau (`leveltest.js`) à calibrer ; envisager un domaine personnalisé ; "Connexion Google" pour les profs (penser domaines Auth + App Check).
