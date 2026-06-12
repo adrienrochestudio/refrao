@@ -48,27 +48,18 @@
       </div>
 
       <!-- ============ GESTIONNAIRE (email + mot de passe) ============ -->
+      <!-- Pas d'inscription libre-service : les comptes gestionnaires (clients B2B)
+           sont provisionnés côté serveur (tools/set-manager.mjs). -->
       <div id="paneManager" class="hidden">
-        <div class="tabs">
-          <button class="tab on" id="tabLogin" type="button">Se connecter</button>
-          <button class="tab" id="tabSignup" type="button">Créer un compte</button>
-        </div>
-
         <div id="paneLogin">
           <div class="field"><label>Email</label><input id="liEmail" type="email" autocomplete="username"></div>
           <div class="field"><label>Mot de passe</label><input id="liPw" type="password" autocomplete="current-password"></div>
           <div class="err" id="liErr"></div>
           <button class="btn btn-primary" id="liGo" style="width:100%;justify-content:center">Se connecter</button>
         </div>
-
-        <div id="paneSignup" class="hidden">
-          <div class="lead hidden" id="completeHead" style="margin-bottom:18px">Termine la configuration de ton compte.</div>
-          <div class="field" id="fEmail"><label>Email</label><input id="suEmail" type="email" autocomplete="username"></div>
-          <div class="field" id="fPw"><label>Mot de passe</label><input id="suPw" type="password" autocomplete="new-password" placeholder="6 caractères minimum"></div>
-          <div class="field"><label>Langue enseignée</label><select id="suLang"></select></div>
-          <div class="field"><label>Ton identifiant de cohorte</label><input id="suCohort" placeholder="ex : hugo-3eB-2026"><div class="hint-small">Lettres, chiffres, tirets. C'est le code que tes apprenants saisiront. Modifiable plus tard.</div></div>
-          <div class="err" id="suErr"></div>
-          <button class="btn btn-primary" id="suGo" style="width:100%;justify-content:center">Créer mon compte</button>
+        <div class="lead" style="margin-top:20px;text-align:center;color:var(--text-mute);font-size:.84rem">
+          Pas encore de compte ? L'accès gestionnaire est fourni sur demande lors de l'abonnement de ton établissement.<br>
+          <a href="mailto:contact@refrao.fr?subject=Demande%20d%27acc%C3%A8s%20gestionnaire%20refr%C3%A3o" style="color:var(--accent,#80b7ff)">Demander un accès</a>
         </div>
       </div>
     </div>
@@ -80,14 +71,12 @@
 <script src="leveltest.js"></script>
 <script>
 const $=s=>document.querySelector(s);
-let completing=false;
 
 R.onAuthProfile((u,p)=>{
   if(u && p){ location.href = p.role==="manager"?"gestion.html":"apprendre.html"; return; }
-  if(u && !p && !u.isAnonymous){ openManager(); showComplete(); }   // ancien compte email sans profil
+  // Compte connecté sans profil gestionnaire : pas d'auto-provisioning (réservé à l'Admin SDK).
+  if(u && !p && !u.isAnonymous){ openManager(); $("#liErr").textContent="Ce compte n'a pas d'accès gestionnaire actif. Contacte-nous pour activer ton établissement."; }
 });
-
-$("#suLang").innerHTML = R.LANGS.map(l=>`<option value="${l.code}">${l.label}</option>`).join("");
 
 /* bascule Apprenant / Gestionnaire */
 function openLearner(){ $("#rApprenant").classList.add("on"); $("#rManager").classList.remove("on"); $("#paneLearner").classList.remove("hidden"); $("#paneManager").classList.add("hidden"); }
@@ -120,41 +109,9 @@ $("#leDontKnow").onclick=()=>{
   LevelTest.run("", cefr=>joinLearner(cefr));
 };
 
-/* ---------- Gestionnaire ---------- */
-function showLogin(login){ $("#tabLogin").classList.toggle("on",login); $("#tabSignup").classList.toggle("on",!login); $("#paneLogin").classList.toggle("hidden",!login); $("#paneSignup").classList.toggle("hidden",login); }
-$("#tabLogin").onclick=()=>showLogin(true);
-$("#tabSignup").onclick=()=>showLogin(false);
-
-function showComplete(){
-  completing=true; showLogin(false);
-  $("#completeHead").classList.remove("hidden");
-  $("#fEmail").classList.add("hidden"); $("#fPw").classList.add("hidden");
-  $("#suGo").textContent="Terminer mon compte";
-}
-
+/* ---------- Gestionnaire (connexion uniquement) ---------- */
 $("#liGo").onclick=async()=>{ $("#liErr").textContent=""; try{ await R.login($("#liEmail").value.trim(), $("#liPw").value); }catch(e){ $("#liErr").textContent="Identifiants incorrects."; } };
 $("#liPw").addEventListener("keydown",e=>{ if(e.key==="Enter")$("#liGo").click(); });
-
-$("#suGo").onclick=async()=>{
-  $("#suErr").textContent="";
-  const opts={ role:"manager", lang:$("#suLang").value, cohortCode:$("#suCohort").value };
-  try{
-    let res;
-    if(completing){ res=await R.completeProfile(opts); }
-    else{
-      const email=$("#suEmail").value.trim(), pw=$("#suPw").value;
-      if(!email||pw.length<6){ $("#suErr").textContent="Email valide et mot de passe de 6 caractères minimum."; return; }
-      res=await R.signup({...opts, email, pw});
-    }
-    location.href="gestion.html";
-  }catch(e){
-    let m=e.message||"Erreur";
-    if(/email-already-in-use/.test(m)) m="Cet email a déjà un compte.";
-    if(/invalid-email/.test(m)) m="Email invalide.";
-    if(/weak-password/.test(m)) m="Mot de passe trop faible (6 caractères min).";
-    $("#suErr").textContent=m;
-  }
-};
 </script>
 </body>
 </html>

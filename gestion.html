@@ -137,6 +137,24 @@ async function renderCohort(){
   try{ learners = store.listLearners ? await store.listLearners(code) : []; }catch(e){}
   learners = learners.filter(l=>l.role==="learner");
 
+  // Licence B2B : claim validUntil autoritatif, doc licenses pour l'affichage riche.
+  let lic=null; const myUid=(R.user()&&R.user().uid)||null;
+  try{ lic = (store.getLicense && myUid) ? await store.getLicense(myUid) : null; }catch(e){}
+  const ent=R.entitlement(), valid=R.licenseValid();
+  const until=(lic&&lic.validUntil)||(ent&&ent.validUntil)||null;
+  const planName=(lic&&lic.plan)||(ent&&ent.plan)||"—";
+  const seats=lic&&lic.seats;
+  const dleft = until ? Math.ceil((until-Date.now())/864e5) : null;
+  const expSoon = !!(dleft!==null && dleft<=30 && dleft>0);
+  const col = !valid ? "var(--red)" : expSoon ? "#e0a800" : "var(--green)";
+  const untilStr = until ? new Date(until).toLocaleDateString("fr-FR") : "—";
+  const seatStr = seats ? (learners.length+" / "+seats+" apprenants") : (learners.length+" apprenants");
+  const licBanner = `<div class="lic-banner" style="display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding:10px 14px;margin-bottom:14px;border:1px solid var(--border);border-left:3px solid ${col};border-radius:10px;font-size:.84rem">
+    <b style="color:${col}">Licence ${R.esc(planName)}</b>
+    <span style="color:var(--text-mute)">${!valid?"expirée — création/édition bloquée":("valide jusqu'au "+R.esc(untilStr)+(expSoon?(" · "+dleft+" j restants"):""))}</span>
+    <span style="color:var(--text-mute);margin-left:auto">${R.esc(seatStr)}</span>
+  </div>`;
+
   let rows="";
   for(const l of learners){
     let prog={songs:{}}, cards={cards:{}};
@@ -152,6 +170,7 @@ async function renderCohort(){
   }
   const genreOpts=`<option value="">Toutes les catégories</option>`+R.GENRES.map(g=>`<option value="${g}" ${cohort.category===g?"selected":""}>${g}</option>`).join("");
   panel.innerHTML=`
+    ${licBanner}
     <div class="cohort-head">
       <div>
         <div class="cap">Ma cohorte</div>
@@ -266,6 +285,7 @@ async function importDeezer(){
 }
 
 function openEditor(id){
+  if(!R.licenseValid()){ R.toast("Licence expirée — contacte refrão pour la renouveler."); return; }
   const s=id?SONGS.find(x=>x.id===id):null;
   edit={id:s?s.id:null, pairs:s?JSON.parse(JSON.stringify(s.pairs||[])):[], selPt:[], selFr:[]};
   edMeta={cover:s?.cover||"", preview:s?.preview||""};

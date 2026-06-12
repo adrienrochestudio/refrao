@@ -13,16 +13,22 @@
         (déjà ignoré par git, ne JAMAIS le committer).
      3. Depuis ~/refrao :  npm init -y && npm install firebase-admin
 
+   Pose aussi la LICENCE B2B : claims `plan` + `validUntil` (levier
+   d'accès, vérifié par firestore.rules) et un document licenses/{uid}
+   (plan, sièges, expiration, école, contact). Sert à l'onboarding ET
+   au renouvellement (relancer avec un nouveau --until prolonge).
+
    Utilisation :
-     node tools/set-manager.mjs --email prof@ecole.fr
-     node tools/set-manager.mjs --email prof@ecole.fr \
-          --cohort hugo-3eB-2026 --lang pt --level A2
-     # créer le compte s'il n'existe pas encore :
+     # onboarding complet d'un client B2B (crée le compte si besoin) :
      node tools/set-manager.mjs --email prof@ecole.fr --password motdepasse6+ \
-          --cohort hugo-3eB-2026
+          --cohort hugo-3eB-2026 --lang pt --level A2 \
+          --plan school --until 2027-09-01 --seats 30 --school "Collège Hugo"
+     # renouvellement (prolonge la licence d'un compte existant) :
+     node tools/set-manager.mjs --email prof@ecole.fr --until 2028-09-01
+     # --until : date YYYY-MM-DD ou un nombre de jours (défaut 365).
 
    Après exécution, le gestionnaire doit se déconnecter/reconnecter
-   (ou attendre ~1 h) pour que son token reflète le nouveau claim.
+   (ou attendre ~1 h) pour que son token reflète les nouveaux claims.
    ============================================================ */
 
 import { readFile } from 'node:fs/promises';
@@ -40,11 +46,29 @@ const password = arg('password');       // optionnel : crée le compte s'il n'ex
 const cohort   = arg('cohort');         // optionnel : crée/rattache la cohorte
 const lang     = arg('lang', 'pt');
 const level    = arg('level', 'A2');
+const plan     = arg('plan', 'school'); // licence : type d'abonnement
+const until    = arg('until');          // licence : YYYY-MM-DD ou nb de jours (défaut 365)
+const seats    = parseInt(arg('seats', '30'), 10);
+const school   = arg('school', '');
+const contact  = arg('contact', email);
 
 if (!email) {
-  console.error('Usage: node tools/set-manager.mjs --email <email> [--cohort <code> --lang <pt> --level <A2>]');
+  console.error('Usage: node tools/set-manager.mjs --email <email> [--password <6+>] [--cohort <code> --lang <pt> --level <A2>] [--plan school --until 2027-09-01 --seats 30 --school "..."]');
   process.exit(1);
 }
+
+/* Calcule la date d'expiration (ms epoch) de la licence. */
+function computeValidUntil(v) {
+  if (!v) return Date.now() + 365 * 864e5;             // défaut : 1 an
+  if (/^\d+$/.test(v)) return Date.now() + parseInt(v, 10) * 864e5;  // nombre de jours
+  const t = Date.parse(v);                              // date ISO YYYY-MM-DD
+  if (Number.isNaN(t)) {
+    console.error('--until invalide (attendu YYYY-MM-DD ou un nombre de jours).');
+    process.exit(1);
+  }
+  return t;
+}
+const validUntil = computeValidUntil(until);
 
 const KEY_PATH = new URL('./serviceAccount.json', import.meta.url);
 let serviceAccount;
@@ -70,9 +94,9 @@ if (!user) {
 }
 const uid = user.uid;
 
-// 1. Custom claim role:manager (en conservant les claims existants)
-await auth.setCustomUserClaims(uid, { ...(user.customClaims || {}), role: 'manager' });
-console.log(`OK  claim role:manager posé sur ${email} (uid ${uid}).`);
+// 1. Custom claims : role:manager + licence (plan, validUntil), claims existants conservés.
+await auth.setCustomUserClaims(uid, { ...(user.customClaims || {}), role: 'manager', plan, validUntil });
+console.log(`OK  claims role:manager + licence (${plan}) posés sur ${email} (uid ${uid}).`);
 
 // 2. Document utilisateur (role + cohortId si fourni)
 const userDoc = { role: 'manager', email };
@@ -80,7 +104,18 @@ if (cohort) userDoc.cohortId = cohort;
 await db.collection('users').doc(uid).set(userDoc, { merge: true });
 console.log('OK  document users mis à jour.');
 
-// 3. Cohorte (optionnelle)
+// 3. Document licence (source de vérité ops/facturation ; lisible par le gestionnaire).
+//    createdAt préservé lors d'un renouvellement.
+const licRef = db.collection('licenses').doc(uid);
+const licSnap = await licRef.get();
+const createdAt = licSnap.exists ? (licSnap.data().createdAt || Date.now()) : Date.now();
+await licRef.set({
+  managerUid: uid, plan, status: 'active', seats,
+  validUntil, school, contactEmail: contact, createdAt, updatedAt: Date.now()
+}, { merge: true });
+console.log(`OK  licence ${plan} jusqu'au ${new Date(validUntil).toISOString().slice(0, 10)} (${seats} sièges).`);
+
+// 4. Cohorte (optionnelle)
 if (cohort) {
   await db.collection('cohorts').doc(cohort).set({
     code: cohort, managerUid: uid, lang, level, category: '', createdAt: Date.now()
@@ -88,5 +123,5 @@ if (cohort) {
   console.log(`OK  cohorte "${cohort}" créée/rattachée (lang ${lang}, niveau ${level}).`);
 }
 
-console.log('\nTerminé. Le gestionnaire doit se reconnecter pour activer son rôle.');
+console.log('\nTerminé. Le gestionnaire doit se reconnecter pour activer son rôle et sa licence.');
 process.exit(0);
