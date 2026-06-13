@@ -1,9 +1,20 @@
 // Types partagés du domaine refrão. `pt`/`fr` dans une ligne = texte d'origine /
 // glose française, quelle que soit la langue de la cohorte (cf. modèle de données).
 
+// Donnée au mot, produite par la fabrique de chansons (tools/import-song.mjs).
+// Tout est optionnel : une ligne reste valide sans enrichissement.
+export interface Word {
+  w: string;        // forme de surface telle qu'elle apparaît dans les paroles
+  t?: number;       // début du mot (s, repère plein morceau) pour le surlignage karaoké mot à mot
+  lemma?: string;   // forme du dictionnaire (résout conjugaisons/accords)
+  gloss?: string;   // sens français EN CONTEXTE (pas une trad dico brute)
+}
+
 export interface Line {
   pt: string;
   fr: string;
+  t?: number;       // début de la ligne (s, repère plein morceau), depuis le LRC synchronisé
+  words?: Word[];   // enrichissement au mot (optionnel)
 }
 
 export interface Section {
@@ -28,8 +39,13 @@ export interface Song {
   sections?: Section[];
   pairs?: Pair[];
   deezer?: string;
+  deezerId?: string;   // id de piste Deezer (lecture pleine via SDK pour les Premium)
   cover?: string;
   preview?: string;
+  synced?: boolean;    // true quand les lignes portent des timecodes (LRC) => karaoké dispo
+  source?: string;     // provenance de l'enrichissement (ex: 'lrclib+llm') pour la traçabilité
+  youtubeId?: string;  // id vidéo YouTube : moteur de lecture pleine + synchro karaoké (gratuit, sans login)
+  offset?: number;     // décalage (s) à ajouter aux timecodes si la vidéo a une intro avant la chanson
   // Ancien modèle à plat, conservé en lecture seule pour la rétrocompat.
   pt?: string;
   fr?: string;
