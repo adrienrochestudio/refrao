@@ -193,11 +193,11 @@ a{color:inherit;text-decoration:none}
 .back:hover{color:var(--text)}
 
 .song-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
-.song-card{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px 22px 18px;transition:transform .35s var(--ease),border-color .35s;cursor:pointer}
-.song-card:hover{transform:translateY(-5px);border-color:var(--border-2)}
-.song-card .ttl{font-family:var(--font-display);font-weight:700;font-size:1.2rem;letter-spacing:-.01em;line-height:1.15}
-.song-card .art{color:var(--text-dim);font-size:.86rem;margin-top:3px}
-.song-card .meta{display:flex;align-items:center;gap:14px;margin-top:16px;font-family:var(--font-mono);font-size:.74rem;color:var(--text-mute)}
+.song-card{position:relative;display:flex;flex-direction:column;gap:7px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;transition:transform .3s var(--ease),border-color .3s;cursor:pointer}
+.song-card:hover{transform:translateY(-4px);border-color:var(--border-2)}
+.song-card .ttl{font-family:var(--font-display);font-weight:700;font-size:1.18rem;letter-spacing:-.01em;line-height:1.2;margin:0}
+.song-card .art{color:var(--text-dim);font-size:.85rem;margin:0}
+.song-card .meta{display:flex;align-items:center;flex-wrap:wrap;gap:6px 14px;margin-top:6px;font-family:var(--font-mono);font-size:.72rem;color:var(--text-mute)}
 .song-card .meta .v{color:var(--blue-soft)}
 .song-card .prog{margin-top:14px}
 .song-card .acts{position:absolute;top:14px;right:14px;display:flex;gap:6px;opacity:0;transition:opacity .3s}
@@ -374,8 +374,7 @@ a{color:inherit;text-decoration:none}
 .err{color:var(--red);font-size:.84rem;min-height:20px;margin-bottom:6px}
 
 /* ----- badge langue sur les cartes ----- */
-.lang-badge{position:absolute;top:14px;left:14px;font-family:var(--font-mono);font-size:.64rem;text-transform:uppercase;letter-spacing:.08em;color:var(--blue-soft);background:rgba(128,183,255,.12);border:1px solid rgba(128,183,255,.25);border-radius:7px;padding:3px 7px}
-.song-card .ttl{margin-top:22px}
+.lang-badge{font-family:var(--font-mono);font-size:.64rem;text-transform:uppercase;letter-spacing:.08em;color:var(--blue-soft);background:rgba(128,183,255,.12);border:1px solid rgba(128,183,255,.25);border-radius:7px;padding:3px 7px}
 
 /* ----- panneau cohorte ----- */
 .cohort-panel{margin:8px 0 10px}
@@ -459,8 +458,7 @@ a{color:inherit;text-decoration:none}
 .rc-stats b{color:var(--blue-soft);font-family:var(--font-mono)}
 
 /* carte chanson : tags */
-.song-card{position:relative}
-.song-card .cefr-badge{position:absolute;top:14px;right:14px}
+.song-card .cefr-badge{align-self:flex-end}
 .song-card .above{font-size:.72rem;color:var(--purple);margin-top:4px}
 .song-card .done-tag{font-size:.72rem;color:var(--green);margin-top:4px;font-weight:600}
 
@@ -560,12 +558,29 @@ h1 .em{color:var(--blue);font-style:normal}
 .cs-field select{width:100%;background:var(--surface-2);border:1px solid var(--border-2);border-radius:10px;padding:9px 12px;color:var(--text);font-size:.88rem}
 
 /* banque : badges multiples, genre, incomplet, tags */
-.song-card .badges{position:absolute;top:14px;left:14px;right:14px;display:flex;flex-wrap:wrap;gap:6px}
+.song-card .badges{display:flex;flex-wrap:wrap;gap:6px;padding-right:44px}
 .genre-badge{font-family:var(--font-mono);font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:var(--purple);background:rgba(184,155,255,.12);border:1px solid rgba(184,155,255,.28);border-radius:6px;padding:3px 7px}
 .incomplete-badge{font-family:var(--font-mono);font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:var(--red);background:rgba(255,138,138,.12);border:1px solid rgba(255,138,138,.3);border-radius:6px;padding:3px 7px}
 .song-card.incomplete{opacity:.72;border-style:dashed}
-.song-card .tags{font-size:.74rem;color:var(--text-mute);margin-top:6px;font-style:italic}
-.song-card .badges + .ttl{margin-top:34px}
+.song-card .tags{font-size:.74rem;color:var(--text-mute);font-style:italic}
+.song-card .above{font-size:.72rem;color:var(--purple)}
+.song-card .done-tag{font-size:.72rem;color:var(--green);font-weight:600}
+
+/* ---- Accueil apprenant (guidage) ---- */
+.learn-home{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:6px 0 18px}
+.learn-home .lh-hi h3{font-family:var(--font-display);font-weight:800;font-size:1.5rem;letter-spacing:-.01em}
+.learn-home .lh-sub{color:var(--text-dim);font-size:.9rem;margin-top:2px}
+.lh-streak{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid var(--border);border-radius:99px;background:var(--surface);font-size:.92rem;color:var(--text-dim)}
+.lh-streak b{font-size:1.05rem;color:var(--text)}
+.lh-streak .flame{color:#ffb15c}
+.lh-streak.cold .flame{color:var(--text-mute)}
+.continue-card{display:flex;align-items:center;gap:16px;padding:18px 20px;margin-bottom:16px;border:1px solid var(--border-2);border-radius:var(--radius);background:linear-gradient(120deg,rgba(128,183,255,.10),rgba(184,155,255,.08));cursor:pointer;transition:transform .3s var(--ease),border-color .3s}
+.continue-card:hover{transform:translateY(-3px);border-color:var(--blue)}
+.continue-card .cc-l{flex:1;min-width:0}
+.continue-card .cc-tag{font-family:var(--font-mono);font-size:.66rem;text-transform:uppercase;letter-spacing:.1em;color:var(--blue-soft)}
+.continue-card .cc-ttl{font-family:var(--font-display);font-weight:700;font-size:1.25rem;letter-spacing:-.01em;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.continue-card .cc-sub{color:var(--text-dim);font-size:.86rem;margin-top:2px}
+.continue-card .cc-play{flex:none;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:var(--blue);color:#04244a}
 
 /* ---- Karaoké (découverte) ---- */
 .kara{margin:0 0 16px}
