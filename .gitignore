@@ -27,3 +27,4 @@ npm-debug.log*
 
 # Fichier de travail de la fabrique de chansons
 tools/song-prep.json
+tools/prep-*.json
