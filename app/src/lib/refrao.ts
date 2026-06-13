@@ -7,10 +7,10 @@ import {
   signInAnonymously,
   type User
 } from 'firebase/auth';
-import { collection, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { withBase } from './paths';
-import type { Song, Section, Progress, Profile, Entitlement, Cohort, Streak } from './types';
+import type { Song, Section, Progress, Profile, Entitlement, Cohort, Streak, Learner, License } from './types';
 
 /* ---- langues ---- */
 export const LANGS: ReadonlyArray<{ code: string; label: string }> = [
@@ -22,8 +22,24 @@ export const LANGS: ReadonlyArray<{ code: string; label: string }> = [
 export const langLabel = (code?: string): string =>
   LANGS.find(l => l.code === code)?.label ?? code ?? '';
 
-/* ---- CEFR / bandes / placement ---- */
-const CEFR = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const;
+/* ---- CEFR / bandes / placement / genres ---- */
+export const CEFR = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const;
+export const GENRES = [
+  'Pop',
+  'Rock',
+  'Hip-hop',
+  'R&B / Soul',
+  'Électro',
+  'Jazz',
+  'Classique',
+  'Folk / Acoustique',
+  'Latino',
+  'Reggae',
+  'Variété',
+  'Bande originale',
+  'Autre'
+];
+export const genId = (): string => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 export const bandOf = (cefr: string): number => {
   const i = CEFR.indexOf(cefr as (typeof CEFR)[number]);
   return i < 2 ? 1 : i < 4 ? 2 : 3;
@@ -115,6 +131,55 @@ export function refrain(s: Song): Section | null {
   return secs.find(x => x.type === 'refrain') ?? secs[0] ?? null;
 }
 
+/* Détection auto de structure : blocs séparés par lignes vides ; bloc répété = refrain. */
+export function autoSections(ptText: string, frText: string): Section[] {
+  const split = (t: string): string[][] =>
+    t
+      .split(/\n\s*\n/)
+      .map(b => b.split('\n').map(x => x.trim()).filter(Boolean))
+      .filter(b => b.length);
+  let blocks = split(ptText || '');
+  if (!blocks.length) {
+    const all = (ptText || '').split('\n').map(x => x.trim()).filter(Boolean);
+    blocks = all.length ? [all] : [];
+  }
+  const frAll = (frText || '').split('\n').map(x => x.trim()).filter(Boolean);
+  const key = (b: string[]): string => b.map(norm).join(' | ');
+  const counts: Record<string, number> = {};
+  blocks.forEach(b => {
+    const k = key(b);
+    counts[k] = (counts[k] || 0) + 1;
+  });
+  let refrainKey: string | null = null;
+  let max = 1;
+  for (const k in counts) {
+    if (counts[k]! > max) {
+      max = counts[k]!;
+      refrainKey = k;
+    }
+  }
+  let cur = 0;
+  const out: Section[] = [];
+  blocks.forEach(b => {
+    const isR = !!refrainKey && key(b) === refrainKey;
+    const lines = b.map(pt => {
+      const fr = frAll[cur] || '';
+      cur++;
+      return { pt, fr };
+    });
+    out.push({ type: isR ? 'refrain' : 'couplet', lines });
+  });
+  if (!refrainKey && out.length) out[0]!.type = 'refrain';
+  return out;
+}
+
+/* Inverse de sections : reconstruit le texte brut (pt / fr) pour l'éditeur. */
+export function sectionsToText(secs: Section[] | undefined): { pt: string; fr: string } {
+  const list = Array.isArray(secs) ? secs : [];
+  const join = (side: 'pt' | 'fr'): string => list.map(sec => sec.lines.map(l => l[side] || '').join('\n')).join('\n\n');
+  return { pt: join('pt'), fr: join('fr') };
+}
+
 /* ---- accès données ---- */
 export async function getSongs(): Promise<Song[]> {
   const snap = await getDocs(collection(db, 'songs'));
@@ -137,6 +202,64 @@ export async function saveProgress(uid: string, prog: Progress): Promise<void> {
 
 export async function setLang(uid: string, code: string): Promise<void> {
   await setDoc(doc(db, 'users', uid), { lang: code }, { merge: true });
+}
+
+/* ---- opérations gestionnaire ---- */
+export async function listLearners(code: string): Promise<Learner[]> {
+  const q = query(collection(db, 'users'), where('cohortId', '==', code));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ uid: d.id, ...(d.data() as Profile) }));
+}
+
+export async function updateCohort(code: string, fields: Partial<Cohort>): Promise<Cohort> {
+  const cur = (await getCohort(code)) ?? { code };
+  const next = { ...cur, ...fields };
+  await setDoc(doc(db, 'cohorts', code), next);
+  return next;
+}
+
+export async function setLearnerLevel(uid: string, cefr: string): Promise<void> {
+  await setDoc(doc(db, 'users', uid), { cefr, band: bandOf(cefr) }, { merge: true });
+}
+
+/* Renomme l'identifiant de cohorte et migre les apprenants. Préserve les réglages. */
+export async function changeCohortCode(oldCode: string, rawNew: string, uid: string): Promise<string> {
+  const code = slug(rawNew);
+  if (code.length < 3) throw new Error('Identifiant trop court.');
+  if (code === oldCode) return code;
+  if (await getCohort(code)) throw new Error('Cet identifiant est déjà pris.');
+  const old = await getCohort(oldCode);
+  await setDoc(doc(db, 'cohorts', code), {
+    code,
+    managerUid: uid,
+    lang: old?.lang ?? 'pt',
+    level: old?.level ?? 'A2',
+    category: old?.category ?? '',
+    createdAt: old?.createdAt ?? Date.now()
+  });
+  const learners = await listLearners(oldCode);
+  for (const l of learners) await setDoc(doc(db, 'users', l.uid), { cohortId: code }, { merge: true });
+  await deleteDoc(doc(db, 'cohorts', oldCode));
+  await setDoc(doc(db, 'users', uid), { cohortId: code }, { merge: true });
+  return code;
+}
+
+export async function saveSong(song: Song): Promise<void> {
+  await setDoc(doc(db, 'songs', song.id), song);
+}
+
+export async function deleteSong(id: string): Promise<void> {
+  await deleteDoc(doc(db, 'songs', id));
+}
+
+export async function getCards(uid: string): Promise<Record<string, { state?: string }>> {
+  const d = await getDoc(doc(db, 'cards', uid));
+  return d.exists() ? ((d.data() as { cards?: Record<string, { state?: string }> }).cards ?? {}) : {};
+}
+
+export async function getLicense(uid: string): Promise<License | null> {
+  const d = await getDoc(doc(db, 'licenses', uid));
+  return d.exists() ? (d.data() as License) : null;
 }
 
 /* streak quotidien avec gel (note §7.a). Mute profile.streak et persiste. */
@@ -255,6 +378,14 @@ export function guard(kind: 'any' | 'manager', onAllowed: (state: AuthState) => 
     }
   });
 }
+
+/** Entitlement courant (depuis le dernier état d'auth résolu) ou null. */
+export const entitlement = (): Entitlement | null => last?.entitlement ?? null;
+/** Licence valide ? (gestionnaire avec validUntil dans le futur). Enforcé aussi côté serveur. */
+export const licenseValid = (): boolean => {
+  const e = last?.entitlement;
+  return !!(e && e.validUntil && Date.now() < e.validUntil);
+};
 
 export async function logout(): Promise<void> {
   await signOut(auth);
