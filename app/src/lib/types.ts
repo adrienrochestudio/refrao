@@ -49,6 +49,12 @@ export interface Progress {
   recent?: number[];
 }
 
+export interface Streak {
+  count: number;
+  last: string | null;
+  freezes: number;
+}
+
 export interface Profile {
   role?: string;
   email?: string;
@@ -58,6 +64,7 @@ export interface Profile {
   cohortId?: string;
   cefr?: string;
   band?: number;
+  streak?: Streak;
   [key: string]: unknown;
 }
 
