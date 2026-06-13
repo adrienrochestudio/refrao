@@ -593,6 +593,18 @@ h1 .em{color:var(--blue);font-style:normal}
 .listen-btn.playing .eq i:nth-child(3){animation-delay:.36s}
 @keyframes eqbar{0%,100%{height:5px}50%{height:14px}}
 
+/* ---- Jauges de carte : Difficulté / Longueur / Densité (visuel, pas de chiffres bruts) ---- */
+.meters{display:flex;flex-wrap:wrap;gap:9px 16px;margin-top:4px}
+.meter{display:flex;flex-direction:column;gap:5px}
+.meter .ml{font-family:var(--font-mono);font-size:.58rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-mute)}
+.meter .seg{display:inline-flex;gap:3px}
+.meter .seg i{width:13px;height:5px;border-radius:2px;background:var(--surface-3)}
+.meter .seg.s1 i:nth-child(-n+1),.meter .seg.s2 i:nth-child(-n+2),.meter .seg.s3 i:nth-child(-n+3),.meter .seg.s4 i:nth-child(-n+4){background:var(--mc,var(--blue))}
+.meter.d{--mc:var(--green)}
+.meter.d .seg.s3{--mc:var(--blue-soft)}
+.meter.d .seg.s4{--mc:var(--purple)}
+.meter.l,.meter.n{--mc:var(--blue-soft)}
+
 /* ---- Karaoké (découverte) ---- */
 .kara{margin:0 0 16px}
 .kara-frame{position:relative;width:100%;max-width:520px;margin:0 auto;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000;box-shadow:0 6px 24px rgba(0,0,0,.18)}
