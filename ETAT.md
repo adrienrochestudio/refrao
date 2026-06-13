@@ -106,8 +106,14 @@ Pose le claim `role:manager` + la licence (claims `plan`/`validUntil` + doc `lic
 - **Stack** : Astro + TypeScript, sortie 100% statique (pas de SSR = pas de coût serveur), `base: '/refrao'`. Choix acté (vivier React accessible via les composants îlots).
 - **Layout repo** : tout le nouveau code dans `app/` ; le site vanilla reste à la racine et continue d'être servi par GitHub Pages **tel quel** tant qu'on n'a pas basculé. `app/public/style.css` = copie transitoire du `style.css` racine (sera refondu).
 - **Commandes** (depuis `app/`) : `npm run dev` (serveur sur `/refrao/`), `npm run build`, `npm run check` (type-check). CI auto sur chaque push.
-- **Fait** : fondation + page d'accueil (preuve de concept), utilitaire `withBase()` pour les chemins.
-- **Bascule GitHub Pages** (PAS encore faite) : quand l'app aura la parité, passer la source Pages de « branche/racine » à « GitHub Actions » et déployer le build `app/dist`. Tant que ce n'est pas fait, fusionner sur `main` ne change RIEN au site en ligne.
+- **PORTAGE COMPLET** : les 5 pages sont portées sur Astro + TS.
+  - `index.astro` (accueil), `auth.astro` (connexion), `progression.astro`, `apprendre.astro` (parcours + cloze + révision), `gestion.astro` (cohorte + licence + éditeur + Deezer).
+  - Couche typée dans `app/src/lib/` : `firebase.ts`, `refrao.ts` (auth, données, helpers), `srs.ts` (moteur répétition espacée), `apprendre.ts` et `gestion.ts` (contrôleurs), `paths.ts`, `types.ts`.
+  - Les fonctions appelées par les `onclick` inline sont exposées sur `window` (pont transitoire assumé, le redesign nettoiera).
+  - `style.css` réutilisé tel quel (copie dans `app/public/`). Refonte CSS/UX = étape ultérieure.
+  - **Reporté** : test de niveau (`leveltest`, stub) ; placement par auto-sélection en attendant.
+  - Vérifié logged-out (rendu, interactivité, gardes) ; le flux **connecté** n'est pas testable en local (App Check bloque localhost sans jeton de débogage enregistré) — il fonctionnera en prod (même clé, même domaine que le vanilla).
+- **Bascule GitHub Pages** (PAS encore faite, étape délibérée) : workflow `.github/workflows/deploy.yml` prêt (déclenchement **manuel** `workflow_dispatch`). Procédure : (1) Settings > Pages > Source = « GitHub Actions » ; (2) lancer le workflow Deploy ; (3) vérifier le site connecté en prod ; (4) si OK, retirer les fichiers vanilla de la racine. Tant que ce n'est pas fait, le site en ligne reste le vanilla et fusionner sur `main` ne change RIEN pour les utilisateurs.
 
 ## 12. Comment reprendre dans un nouveau chat
 1. Le chat démarre dans `~/refrao` : `CLAUDE.md` est lu automatiquement (règles permanentes).

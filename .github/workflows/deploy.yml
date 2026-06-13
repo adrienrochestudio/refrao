@@ -1,0 +1,46 @@
+name: Deploy (Astro vers Pages)
+
+# Bascule MANUELLE du site vers le build Astro. Tant que la source GitHub Pages
+# reste "Deploy from a branch", ce workflow ne s'exécute pas tout seul et ne
+# change RIEN au site vanilla en ligne (servi depuis la racine).
+#
+# Procédure de cutover (délibérée) :
+#   1. Repo > Settings > Pages > Source = "GitHub Actions".
+#   2. Lancer ce workflow (onglet Actions > Deploy > Run workflow).
+#   3. Vérifier le site, puis retirer les fichiers vanilla de la racine si tout est bon.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app/dist
+      - id: deploy
+        uses: actions/deploy-pages@v4
