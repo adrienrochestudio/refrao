@@ -550,12 +550,85 @@ function startTraining(songId: string, si: number): void {
     if (!chosen.length) chosen = [0];
     chosen.forEach(bi => {
       const answer = clean(words[bi]!);
-      qs.push({ li, words, blank: bi, answer, fr: l.fr, pt: l.pt, mode, opts: mode === 'choice' ? buildChoices(s, answer) : null });
+      qs.push({
+        li,
+        words,
+        blank: bi,
+        answer,
+        fr: l.fr,
+        pt: l.pt,
+        mode,
+        opts: mode === 'choice' ? buildChoices(s, answer) : null,
+        t: l.t ?? null,
+        tEnd: sec.lines[li + 1]?.t ?? null
+      });
     });
   });
   S.sess = { kind: 'training', song: s, sec, si, qs: shuffle(qs), idx: 0, correct: 0, lineRes: {}, hintN: 0, locked: false, sel: null };
   showView('exercise');
+  void setupExAudio(s);
   renderClozeQ();
+}
+
+/* ---------- Audio des exercices d'écoute : joue le snippet exact d'un vers
+   (seek au timecode de la ligne via YouTube, pause au vers suivant). Réutilise
+   loadYT(). Lecteur caché persistant, hors de #exWrap (qui est reconstruit). ---------- */
+let exAudio: { player: any; raf: number } | null = null;
+
+async function setupExAudio(s: Song): Promise<void> {
+  stopExAudio();
+  if (!s.youtubeId) return;
+  const host = $id('exercise');
+  if (!host) return;
+  const mount = document.createElement('div');
+  mount.id = 'exYt';
+  mount.style.cssText = 'position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1';
+  host.appendChild(mount);
+  const YT = await loadYT();
+  if (!$id('exYt')) return; // sorti entre-temps
+  const player = new YT.Player('exYt', {
+    videoId: s.youtubeId,
+    playerVars: { rel: 0, playsinline: 1, controls: 0 },
+    events: {}
+  });
+  exAudio = { player, raf: 0 };
+}
+
+function playLine(t: number, tEnd: number | null, offset: number): void {
+  if (!exAudio) return;
+  cancelAnimationFrame(exAudio.raf);
+  const end = (tEnd != null ? tEnd : t + 4) + offset;
+  try {
+    exAudio.player.seekTo(t + offset, true);
+    exAudio.player.playVideo();
+  } catch {
+    return;
+  }
+  const tick = (): void => {
+    if (!exAudio) return;
+    if ((exAudio.player.getCurrentTime?.() ?? 0) >= end) {
+      try {
+        exAudio.player.pauseVideo();
+      } catch {
+        /* déjà arrêté */
+      }
+      return;
+    }
+    exAudio.raf = requestAnimationFrame(tick);
+  };
+  exAudio.raf = requestAnimationFrame(tick);
+}
+
+function stopExAudio(): void {
+  if (!exAudio) return;
+  cancelAnimationFrame(exAudio.raf);
+  try {
+    exAudio.player.destroy();
+  } catch {
+    /* déjà détruit */
+  }
+  exAudio = null;
+  $id('exYt')?.remove();
 }
 function renderClozeQ(): void {
   const ss = S.sess;
@@ -567,6 +640,7 @@ function renderClozeQ(): void {
   ss.hintN = 0;
   ss.sel = null;
   ss.locked = false;
+  const hasAudio = !!(ss.song as Song).youtubeId && q.t != null;
   const pct = Math.round((ss.idx / ss.qs.length) * 100);
   const lineHtml = q.words
     .map((w: string, i: number) => (i === q.blank ? `<span class="blank" id="blank">?</span>` : `<span>${esc(w)}</span>`))
@@ -581,7 +655,8 @@ function renderClozeQ(): void {
     <div class="ex-card">
       <div class="ex-top"><button class="close" onclick="quitToSong('${ss.song.id}')">${xIcon()}</button><div class="bar"><i style="width:${pct}%"></i></div></div>
       <div class="ex-tag">${ss.sec.type === 'refrain' ? 'Refrain' : 'Couplet'} · ${langOf()}</div>
-      <div class="ex-q">Complète le vers</div>
+      <div class="ex-q">${hasAudio ? 'Écoute et complète le vers' : 'Complète le vers'}</div>
+      ${hasAudio ? `<button class="listen-btn" id="listenBtn" type="button">${earIcon()}<span>Écouter le vers</span><span class="eq"><i></i><i></i><i></i></span></button>` : ''}
       <div class="ex-prompt fr-help">${esc(q.fr)}</div>
       <div class="cloze">${lineHtml}</div>
       ${answerArea}
@@ -594,6 +669,16 @@ function renderClozeQ(): void {
   wireCloze(q);
 }
 function wireCloze(q: any): void {
+  const lb = $id('listenBtn') as HTMLButtonElement | null;
+  if (lb) {
+    const offset = (S.sess.song as Song).offset || 0;
+    const dur = q.tEnd != null ? q.tEnd - q.t : 4;
+    lb.onclick = () => {
+      lb.classList.add('playing');
+      playLine(q.t, q.tEnd, offset);
+      window.setTimeout(() => lb.classList.remove('playing'), Math.max(800, dur * 1000 + 300));
+    };
+  }
   const check = $id('checkBtn') as HTMLButtonElement | null;
   if (!check) return;
   if (q.mode === 'choice') {
@@ -661,6 +746,7 @@ function gradeCloze(q: any, good: boolean): void {
   SRS.pushRecent(S.prog, good);
 }
 async function finishTraining(): Promise<void> {
+  stopExAudio();
   const ss = S.sess;
   const s = ss.song as Song;
   ss.sec.lines.forEach((l: any, li: number) => {
@@ -901,6 +987,7 @@ function confetti(): void {
 }
 function quitToSong(id: string): void {
   stopKaraoke();
+  stopExAudio();
   openSong(id);
 }
 
@@ -926,6 +1013,9 @@ function xIcon(): string {
 }
 function deezerIcon(): string {
   return '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M19 4h3v4h-3zM19 9h3v4h-3zM14 9h3v4h-3zM14 14h3v4h-3zM9 14h3v4H9zM4 14h3v4H4z"/></svg>';
+}
+function earIcon(): string {
+  return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11a9 9 0 0 1 18 0v2M3 13v-2M21 13v-2M3 14a2 2 0 0 0 2 2 2 2 0 0 1 2 2 2 2 0 0 0 2 2M21 14a2 2 0 0 1-2 2 2 2 0 0 0-2 2 2 2 0 0 1-2 2"/></svg>';
 }
 function miniCheck(big?: boolean): string {
   const sz = big ? 0 : 18;
