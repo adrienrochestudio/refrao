@@ -662,6 +662,14 @@ h1 .em{color:var(--blue);font-style:normal}
 .combo-flash{position:absolute;top:10%;left:50%;font-family:var(--font-display);font-weight:800;font-size:1.25rem;color:var(--purple);pointer-events:none;z-index:6;animation:comboflash 1s var(--ease) forwards}
 @keyframes comboflash{0%{opacity:0;transform:translate(-50%,0) scale(.5)}30%{opacity:1;transform:translate(-50%,0) scale(1.18)}100%{opacity:0;transform:translate(-50%,-12px) scale(1)}}
 
+/* ---- Découverte pas à pas : une partie par écran ---- */
+.dseg-row{display:flex;gap:6px;flex:1}
+.dseg{flex:1;height:5px;border-radius:99px;background:var(--surface-3)}
+.dseg.on{background:var(--blue)}
+.dseg.done{background:var(--green)}
+.disc-step .lyrics.step{max-height:none;overflow:visible;margin-top:6px;text-align:left;gap:14px}
+.disc-mini{font-size:.78rem;color:var(--text-mute);margin-top:14px}
+
 /* ---- Karaoké (découverte) ---- */
 .kara{margin:0 0 16px}
 .kara-frame{position:relative;width:100%;max-width:520px;margin:0 auto;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000;box-shadow:0 6px 24px rgba(0,0,0,.18)}

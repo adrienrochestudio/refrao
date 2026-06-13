@@ -334,42 +334,111 @@ async function declareShadow(id: string): Promise<void> {
 function startDiscovery(songId: string): void {
   const s = S.songs.find(x => x.id === songId);
   if (!s) return;
-  S.sess = { kind: 'discovery', song: s };
+  S.sess = { kind: 'discovery', song: s, secs: sections(s), di: 0 };
   showView('exercise');
+  void setupExAudio(s);
+  renderDiscoveryStep();
+}
+
+// Découverte PAS À PAS : une seule partie (refrain/couplet) par écran — peu
+// d'infos d'un coup —, audio qui se lance seul + surlignage, étincelle à chaque
+// « Suivant ». Plus addictif et plus direct qu'un mur de paroles.
+function renderDiscoveryStep(): void {
+  const ss = S.sess;
+  const s = ss.song as Song;
+  const secs = ss.secs as Section[];
+  const di = ss.di as number;
+  const sec = secs[di];
+  if (!sec) {
+    void markDiscovered(s.id);
+    return;
+  }
   const band = S.band;
-  const secs = sections(s);
-  const body = secs.map(sec => sectionLyrics(sec, band)).join('');
+  const last = di >= secs.length - 1;
+  const dots = secs.map((_, i) => `<span class="dseg${i < di ? ' done' : i === di ? ' on' : ''}"></span>`).join('');
+  const tag = sec.type === 'refrain' ? 'Refrain' : 'Couplet';
+  const hint = band === 1 ? 'Écoute en lisant la traduction.' : band === 2 ? 'Touche une ligne pour sa traduction.' : 'Touche un mot pour son sens.';
   const wrap = $id('exWrap');
   if (wrap)
     wrap.innerHTML = `
-    <div class="ex-card lyric-card">
-      <div class="ex-top"><button class="close" onclick="quitToSong('${s.id}')">${xIcon()}</button><div class="cefr-badge b${songBand(s)}">${esc(s.cefr || 'A2')}</div></div>
-      <div class="disc-head">
-        <div class="ex-tag">Découverte</div>
-        <h2>${esc(s.title)}</h2>
-        <div class="art">${esc(s.artist || '')}</div>
-        ${s.deezer ? `<a class="deezer" href="${esc(s.deezer)}" target="_blank" rel="noopener">${deezerIcon()} Écouter sur Deezer</a>` : ''}
-        <p class="disc-note">${s.youtubeId ? 'Lance la lecture : les paroles défilent en rythme. ' : ''}${band === 1 ? 'Traduction affichée. Écoute en lisant.' : band === 2 ? 'Clique une ligne pour révéler sa traduction.' : 'Clique un mot pour son sens.'}</p>
-      </div>
-      ${s.youtubeId ? `<div class="kara"><div class="kara-frame"><div id="ytFrame"></div></div></div>` : ''}
-      <div class="lyrics">${body}</div>
-      <div class="ex-foot"><span></span><div class="foot-actions"><button class="btn btn-primary" onclick="markDiscovered('${s.id}')">J'ai écouté — commencer</button></div></div>
+    <div class="ex-card disc-step ex-listen">
+      <div class="ex-top"><button class="close" onclick="quitToSong('${s.id}')">${xIcon()}</button><div class="dseg-row">${dots}</div></div>
+      <div class="ex-tag">${tag} · partie ${di + 1} / ${secs.length}</div>
+      ${s.youtubeId ? `<div class="audio-wrap"><button class="audio-hero" id="discPlay" type="button" aria-label="Réécouter">${earIcon()}</button><div class="audio-cap">Écoute cette partie</div></div>` : ''}
+      <div class="lyrics step">${sectionLyrics(sec, band)}</div>
+      <p class="disc-mini">${hint}</p>
+      <div class="ex-foot"><span></span><div class="foot-actions"><button class="btn btn-primary" id="discNext">${last ? 'C’est parti !' : 'Suivant'}</button></div></div>
     </div>`;
   wireLyrics(band);
-  if (s.youtubeId) void setupKaraoke(s);
+  const pb = $id('discPlay');
+  if (pb) {
+    pb.onclick = () => playDiscoSection();
+    window.setTimeout(() => playDiscoSection(), 450); // lecture auto : immersion
+  }
+  const nx = $id('discNext');
+  if (nx)
+    nx.onclick = () => {
+      burst(true); // petite étincelle de récompense
+      if (last) {
+        void markDiscovered(s.id);
+      } else {
+        ss.di++;
+        renderDiscoveryStep();
+      }
+    };
 }
 
-/* ---------- Karaoké : lecture pleine + synchro (YouTube, gratuit, sans login) ----------
-   Moteur découplé de la source : il lit getCurrentTime() et surligne la ligne dont le
-   timecode (Line.t, repère plein morceau) est atteint. Brancher Deezer SDK / autre
-   plus tard = remplacer le fournisseur de temps, sans toucher au reste. */
-interface Kara {
-  player: any; // YT.Player
-  raf: number;
-  active: number;
+// Joue la partie courante sur le lecteur caché (exAudio) et surligne la ligne en cours.
+function playDiscoSection(): void {
+  if (!exAudio) return;
+  const offset = (S.sess.song as Song).offset || 0;
+  const lineEls = Array.from(document.querySelectorAll<HTMLElement>('.lyrics .ly-line'));
+  const times = lineEls.map(el => parseFloat(el.dataset.t || 'NaN'));
+  const valid = times.filter(t => !isNaN(t));
+  if (!valid.length) return;
+  const start = Math.min(...valid);
+  const end = Math.max(...valid) + 3.5;
+  cancelAnimationFrame(exAudio.raf);
+  try {
+    exAudio.player.seekTo(start + offset, true);
+    exAudio.player.playVideo();
+    $id('discPlay')?.classList.add('playing');
+  } catch {
+    return;
+  }
+  const tick = (): void => {
+    if (!exAudio) return;
+    const now = (exAudio.player.getCurrentTime?.() ?? 0) - offset;
+    if (now >= end) {
+      try {
+        exAudio.player.pauseVideo();
+      } catch {
+        /* déjà arrêté */
+      }
+      lineEls.forEach(el => el.classList.remove('kara-active'));
+      $id('discPlay')?.classList.remove('playing');
+      return;
+    }
+    let idx = -1;
+    for (let i = 0; i < times.length; i++) {
+      if (!isNaN(times[i]) && times[i] <= now + 0.12) idx = i;
+    }
+    lineEls.forEach((el, i) => {
+      el.classList.toggle('kara-active', i === idx);
+      if (i === idx && S.band === 2) {
+        const t = el.querySelector('.t') as HTMLElement | null;
+        if (t) {
+          t.textContent = el.dataset.fr || '';
+          t.classList.remove('hidden-t');
+        }
+      }
+    });
+    exAudio.raf = requestAnimationFrame(tick);
+  };
+  exAudio.raf = requestAnimationFrame(tick);
 }
-let kara: Kara | null = null;
 
+/* Chargement de l'API YouTube IFrame (partagé par le lecteur audio caché exAudio). */
 function loadYT(): Promise<any> {
   const w = window as any;
   if (w.YT && w.YT.Player) return Promise.resolve(w.YT);
@@ -388,76 +457,6 @@ function loadYT(): Promise<any> {
   });
 }
 
-function stopKaraoke(): void {
-  if (!kara) return;
-  cancelAnimationFrame(kara.raf);
-  try {
-    kara.player.destroy();
-  } catch {
-    /* déjà détruit */
-  }
-  kara = null;
-}
-
-async function setupKaraoke(s: Song): Promise<void> {
-  stopKaraoke();
-  const mount = $id('ytFrame');
-  if (!mount || !s.youtubeId) return;
-  const YT = await loadYT();
-  if (!document.body.contains(mount)) return; // vue quittée pendant le chargement
-
-  const offset = s.offset || 0;
-  const lineEls = Array.from(document.querySelectorAll<HTMLElement>('.lyrics .ly-line'));
-  const times = lineEls.map(el => parseFloat(el.dataset.t || 'NaN'));
-
-  // Clic sur une ligne = saut à son moment dans la chanson (sauf clic sur un mot).
-  lineEls.forEach((el, i) => {
-    if (isNaN(times[i])) return;
-    el.classList.add('seekable');
-    el.addEventListener('click', ev => {
-      if ((ev.target as HTMLElement).closest('.w')) return;
-      kara?.player.seekTo(times[i] + offset, true);
-      kara?.player.playVideo();
-    });
-  });
-
-  const player = new YT.Player(mount, {
-    videoId: s.youtubeId,
-    playerVars: { rel: 0, modestbranding: 1, playsinline: 1 },
-    events: {
-      onStateChange: (e: any) => {
-        if (e.data === YT.PlayerState.PLAYING) tick();
-      }
-    }
-  });
-  kara = { player, raf: 0, active: -1 };
-
-  function tick(): void {
-    if (!kara) return;
-    const now = (kara.player.getCurrentTime?.() ?? 0) - offset;
-    let idx = -1;
-    for (let i = 0; i < times.length; i++) {
-      if (!isNaN(times[i]) && times[i] <= now + 0.12) idx = i;
-    }
-    if (idx !== kara.active) {
-      if (kara.active >= 0) lineEls[kara.active]?.classList.remove('kara-active');
-      const el = idx >= 0 ? lineEls[idx] : null;
-      if (el) {
-        el.classList.add('kara-active');
-        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        if (S.band === 2) {
-          const t = el.querySelector('.t') as HTMLElement | null;
-          if (t) {
-            t.textContent = el.dataset.fr || '';
-            t.classList.remove('hidden-t');
-          }
-        }
-      }
-      kara.active = idx;
-    }
-    kara.raf = requestAnimationFrame(tick);
-  }
-}
 function sectionLyrics(sec: Section, band: number): string {
   const tag = sec.type === 'refrain' ? 'Refrain' : 'Couplet';
   const lines = sec.lines
@@ -517,7 +516,7 @@ function wordSense(w: string): string | null {
   return p ? p.fr : null;
 }
 async function markDiscovered(id: string): Promise<void> {
-  stopKaraoke();
+  stopExAudio();
   if (!S.prog.songs) S.prog.songs = {};
   S.prog.songs[id] = S.prog.songs[id] ?? {};
   const fresh = !S.prog.songs[id]!.discovered;
@@ -780,7 +779,7 @@ async function finishTraining(): Promise<void> {
   const gain = (ss.xpEarned || 0) + (mastered ? 60 : 0);
   S.prog.xp = xpBefore + gain;
   const liBefore = levelInfo(xpBefore);
-  const liAfter = levelInfo(S.prog.xp);
+  const liAfter = levelInfo(S.prog.xp || 0);
   const leveledUp = liAfter.lvl > liBefore.lvl;
   await SRS.save();
   await saveProgress(S.uid, S.prog);
@@ -957,7 +956,7 @@ async function finishReview(): Promise<void> {
   const gain = ss.xpEarned || 0;
   S.prog.xp = xpBefore + gain;
   const liBefore = levelInfo(xpBefore);
-  const liAfter = levelInfo(S.prog.xp);
+  const liAfter = levelInfo(S.prog.xp || 0);
   const leveledUp = liAfter.lvl > liBefore.lvl;
   await SRS.save();
   await saveProgress(S.uid, S.prog);
@@ -1066,7 +1065,6 @@ function confetti(): void {
   setTimeout(() => c.remove(), 3500);
 }
 function quitToSong(id: string): void {
-  stopKaraoke();
   stopExAudio();
   openSong(id);
 }
@@ -1090,9 +1088,6 @@ function toast(msg: string): void {
 /* petites icônes SVG (pas d'emoji) */
 function xIcon(): string {
   return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
-}
-function deezerIcon(): string {
-  return '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M19 4h3v4h-3zM19 9h3v4h-3zM14 9h3v4h-3zM14 14h3v4h-3zM9 14h3v4H9zM4 14h3v4H4z"/></svg>';
 }
 function earIcon(): string {
   return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11a9 9 0 0 1 18 0v2M3 13v-2M21 13v-2M3 14a2 2 0 0 0 2 2 2 2 0 0 1 2 2 2 2 0 0 0 2 2M21 14a2 2 0 0 1-2 2 2 2 0 0 0-2 2 2 2 0 0 1-2 2"/></svg>';
