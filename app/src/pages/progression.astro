@@ -1,0 +1,92 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="refrão — progression" active="prog">
+  <main class="shell">
+    <div class="section-head">
+      <div>
+        <h2><span class="live-dot"></span>Ta progression</h2>
+        <div class="sub">ton parcours, langue par langue</div>
+      </div>
+    </div>
+
+    <div class="stats stagger">
+      <div class="stat"><div class="n" id="stCefr">A2</div><div class="l">niveau CEFR</div></div>
+      <div class="stat"><div class="n" id="stMastered">0</div><div class="l">cartes maîtrisées</div></div>
+      <div class="stat"><div class="n" id="stDone">0</div><div class="l">chansons complétées</div></div>
+      <div class="stat"><div class="n" id="stRate">—</div><div class="l">réussite récente</div></div>
+    </div>
+
+    <div class="section-head" style="margin-bottom:14px"><div><h2 style="font-size:1.4rem">Par chanson</h2></div></div>
+    <div id="rows"></div>
+  </main>
+
+  <script>
+    import { guard, getSongs, getProgress, sections, refrain, langLabel, esc } from '../lib/refrao';
+    import { withBase } from '../lib/paths';
+    import * as SRS from '../lib/srs';
+
+    function ring(pct: number): string {
+      const r = 24;
+      const c = 2 * Math.PI * r;
+      const off = c * (1 - pct / 100);
+      return `<div class="ring"><svg viewBox="0 0 58 58"><circle cx="29" cy="29" r="${r}" fill="none" stroke="var(--surface-3)" stroke-width="5"/><circle cx="29" cy="29" r="${r}" fill="none" stroke="var(--blue)" stroke-width="5" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${off}" style="transition:stroke-dashoffset 1s var(--ease)"/></svg>${pct}%</div>`;
+    }
+
+    guard('any', async ({ user, profile }) => {
+      const lang = profile?.lang ?? 'pt';
+      const all = await getSongs();
+      const songs = all.filter(s => (s.lang ?? 'pt') === lang);
+      const prog = await getProgress(user!.uid);
+      await SRS.load(user!.uid);
+
+      const subEl = document.querySelector('.section-head .sub');
+      if (subEl) subEl.textContent = 'ton parcours en ' + langLabel(lang).toLowerCase();
+
+      const st = SRS.stats();
+      const recent = prog.recent ?? [];
+      const set = (id: string, v: string) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = v;
+      };
+      set('stCefr', (profile?.cefr as string) ?? 'A2');
+      set('stMastered', String(st.mastered));
+      set('stDone', String(Object.values(prog.songs ?? {}).filter(x => x.completed).length));
+      set('stRate', recent.length ? Math.round((recent.filter(Boolean).length / recent.length) * 100) + '%' : '—');
+
+      const rows = document.getElementById('rows');
+      if (!rows) return;
+      if (!songs.length) {
+        rows.innerHTML = `<div class="empty"><b>Rien à afficher</b>Aucune chanson en ${esc(langLabel(lang))} pour l'instant.</div>`;
+        return;
+      }
+      rows.className = 'stagger';
+      rows.innerHTML = songs
+        .map(s => {
+          const ref = refrain(s);
+          const pct = ref ? SRS.sectionPct(s, ref) : 0;
+          const ps = prog.songs?.[s.id] ?? {};
+          const chips = sections(s)
+            .map(sec => {
+              const m = SRS.sectionMastered(s, sec);
+              return `<span class="chip ${m ? 'done' : ''}">${sec.type === 'refrain' ? 'Refrain' : 'Couplet'}</span>`;
+            })
+            .join('');
+          const tag = ps.full
+            ? `<span class="chip done">Maîtrise complète</span>`
+            : ps.completed
+              ? `<span class="chip done">Complétée</span>`
+              : '';
+          return `<a class="prog-row" href="${withBase('apprendre')}?song=${encodeURIComponent(s.id)}">
+            <div class="left">
+              <div class="nm">${esc(s.title)} <span class="cefr-inline">${esc(s.cefr ?? 'A2')}</span></div>
+              <div class="lv">${chips}${tag}</div>
+            </div>
+            ${ring(pct)}
+          </a>`;
+        })
+        .join('');
+    });
+  </script>
+</Base>
