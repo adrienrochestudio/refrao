@@ -64,3 +64,10 @@
 - **Bande** : niveau de difficulté (1 Découverte A1-A2, 2 Intermédiaire B1-B2, 3 Avancé C1-C2).
 - **Carte** : unité de mémoire (mot ou phrase) suivie par le moteur de répétition espacée.
 - **Section** : refrain ou couplet d'une chanson.
+
+## 11. Profil utilisateur cible & philosophie UX (guide TOUS les choix UX)
+- **Persona sous-jacent : l'utilisateur basique.** On conçoit pour quelqu'un qui ne comprend pas facilement, **fatigué, peu concentré, distrait**. Si une info demande un effort de compréhension, elle est ratée. Test permanent : « un utilisateur basique, fatigué, le saisit-il en une seconde, sans réfléchir ? »
+- **Clarté absolue.** Pas de jargon, pas d'abstraction (ex. « densité » = mauvais ; un mot concret = bon). Préférer des **mots simples + repères visuels** (couleur, icône, niveau) plutôt que des chiffres ou des concepts. Une seule action évidente par écran.
+- **Guider pas à pas.** L'utilisateur ne doit jamais se demander « quoi faire maintenant ». Toujours un prochain pas clair et unique.
+- **Rétention addictive, à l'état de l'art.** S'inspirer explicitement des meilleures techniques des champions de la rétention (**Duolingo, Meta/Instagram, jeux mobiles**) : séries (streaks) et peur de les perdre, récompenses variables et célébrations, progression visible et micro-objectifs, boucles courtes et gratifiantes, relances, friction minimale. Le but : amener l'utilisateur jusqu'à l'objectif d'apprentissage en le faisant revenir.
+- **Conséquence pratique.** Chaque ajout/UX se valide à l'aune de ce persona. En cas de doute entre « élégant/complet » et « immédiatement compréhensible par un utilisateur basique fatigué », choisir le second.
