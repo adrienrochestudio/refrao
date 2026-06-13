@@ -1,0 +1,145 @@
+---
+import Base from '../layouts/Base.astro';
+import { withBase } from '../lib/paths';
+
+// Adresse de contact gestionnaire (provisoire).
+const CONTACT = 'adrienroche6@gmail.com';
+const mailto = `mailto:${CONTACT}?subject=${encodeURIComponent("Demande d'accès gestionnaire refrão")}`;
+---
+
+<Base title="refrão — connexion" chrome={false}>
+  <main class="shell">
+    <div class="auth-wrap">
+      <div class="auth-card">
+        <div class="seg" style="margin-bottom:22px">
+          <button class="seg-opt on" id="rApprenant" type="button">Apprenant</button>
+          <button class="seg-opt" id="rManager" type="button">Gestionnaire</button>
+        </div>
+
+        <!-- Apprenant (sans mot de passe) -->
+        <div id="paneLearner">
+          <div id="learnerForm">
+            <div class="field">
+              <label>Code de cohorte</label>
+              <input id="leCode" placeholder="le code donné par ton enseignant" autocapitalize="off" />
+            </div>
+            <div class="two-col">
+              <div class="field"><label>Prénom</label><input id="leFirst" placeholder="ton prénom" /></div>
+              <div class="field"><label>Nom</label><input id="leLast" placeholder="ton nom" /></div>
+            </div>
+            <div class="field">
+              <label>Ton niveau de langue</label>
+              <div class="seg">
+                <button class="seg-opt on" data-place="debutant" type="button">Débutant</button>
+                <button class="seg-opt" data-place="intermediaire" type="button">Intermédiaire</button>
+                <button class="seg-opt" data-place="avance" type="button">Avancé</button>
+              </div>
+            </div>
+            <div class="err" id="leErr"></div>
+            <button class="btn btn-primary" id="leGo" style="width:100%;justify-content:center">Commencer</button>
+          </div>
+        </div>
+
+        <!-- Gestionnaire (connexion uniquement ; comptes provisionnés côté serveur) -->
+        <div id="paneManager" class="hidden">
+          <div id="paneLogin">
+            <div class="field"><label>Email</label><input id="liEmail" type="email" autocomplete="username" /></div>
+            <div class="field">
+              <label>Mot de passe</label>
+              <input id="liPw" type="password" autocomplete="current-password" />
+            </div>
+            <div class="err" id="liErr"></div>
+            <button class="btn btn-primary" id="liGo" style="width:100%;justify-content:center">Se connecter</button>
+          </div>
+          <div class="lead" style="margin-top:20px;text-align:center;color:var(--text-mute);font-size:.84rem">
+            Pas encore de compte ? L'accès gestionnaire est fourni sur demande lors de l'abonnement de ton
+            établissement.<br />
+            <a href={mailto} style="color:var(--accent,#80b7ff)">Demander un accès</a>
+          </div>
+        </div>
+      </div>
+      <a href={withBase()} class="back" style="display:block;text-align:center;margin-top:18px">Retour à l'accueil</a>
+    </div>
+  </main>
+
+  <script>
+    import { onAuthProfile, login, joinAsLearner, PLACEMENT } from '../lib/refrao';
+    import { withBase } from '../lib/paths';
+
+    const $ = (id: string) => document.getElementById(id);
+
+    // Déjà connecté : rediriger.
+    onAuthProfile(({ user, profile }) => {
+      if (user && profile) {
+        location.href = profile.role === 'manager' ? withBase('gestion') : withBase('apprendre');
+      }
+    });
+
+    // Bascule Apprenant / Gestionnaire
+    const paneLearner = $('paneLearner');
+    const paneManager = $('paneManager');
+    function openLearner() {
+      $('rApprenant')?.classList.add('on');
+      $('rManager')?.classList.remove('on');
+      paneLearner?.classList.remove('hidden');
+      paneManager?.classList.add('hidden');
+    }
+    function openManager() {
+      $('rManager')?.classList.add('on');
+      $('rApprenant')?.classList.remove('on');
+      paneManager?.classList.remove('hidden');
+      paneLearner?.classList.add('hidden');
+    }
+    $('rApprenant')?.addEventListener('click', openLearner);
+    $('rManager')?.addEventListener('click', openManager);
+
+    // Apprenant : sélection du niveau
+    let place = 'debutant';
+    document.querySelectorAll<HTMLButtonElement>('#paneLearner .seg-opt[data-place]').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('#paneLearner .seg-opt[data-place]').forEach(x => x.classList.remove('on'));
+        b.classList.add('on');
+        place = b.dataset.place ?? 'debutant';
+      });
+    });
+
+    const leErr = $('leErr');
+    $('leGo')?.addEventListener('click', async () => {
+      const code = ($('leCode') as HTMLInputElement)?.value.trim() ?? '';
+      const firstName = ($('leFirst') as HTMLInputElement)?.value.trim() ?? '';
+      const lastName = ($('leLast') as HTMLInputElement)?.value.trim() ?? '';
+      if (leErr) leErr.textContent = '';
+      if (!code) {
+        if (leErr) leErr.textContent = 'Entre le code de ta cohorte.';
+        return;
+      }
+      if (!firstName) {
+        if (leErr) leErr.textContent = 'Entre au moins ton prénom.';
+        return;
+      }
+      try {
+        await joinAsLearner({ code, firstName, lastName, cefr: PLACEMENT[place] ?? 'A2' });
+        location.href = withBase('apprendre');
+      } catch (e) {
+        if (leErr) leErr.textContent = e instanceof Error ? e.message : 'Impossible de rejoindre la cohorte.';
+      }
+    });
+
+    // Gestionnaire : connexion (la redirection est gérée par onAuthProfile)
+    const liErr = $('liErr');
+    async function doLogin() {
+      const email = ($('liEmail') as HTMLInputElement)?.value.trim() ?? '';
+      const pw = ($('liPw') as HTMLInputElement)?.value ?? '';
+      if (liErr) liErr.textContent = '';
+      try {
+        await login(email, pw);
+      } catch {
+        if (liErr) liErr.textContent = 'Identifiants incorrects.';
+      }
+    }
+    $('liGo')?.addEventListener('click', doLogin);
+    $('liPw')?.addEventListener('keydown', e => {
+      if ((e as KeyboardEvent).key === 'Enter') doLogin();
+    });
+  </script>
+</Base>
