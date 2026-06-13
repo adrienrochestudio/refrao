@@ -12,18 +12,22 @@ import Base from '../layouts/Base.astro';
     </div>
 
     <div class="stats stagger">
+      <div class="stat"><div class="n" id="stLevel">1</div><div class="l" id="stXp">niveau</div></div>
       <div class="stat"><div class="n" id="stCefr">A2</div><div class="l">niveau CEFR</div></div>
       <div class="stat"><div class="n" id="stMastered">0</div><div class="l">cartes maîtrisées</div></div>
       <div class="stat"><div class="n" id="stDone">0</div><div class="l">chansons complétées</div></div>
-      <div class="stat"><div class="n" id="stRate">—</div><div class="l">réussite récente</div></div>
     </div>
+    <div class="xp-line"><div class="xpl-bar"><i id="pxpBar" style="width:0%"></i></div><span class="xpl-txt" id="pxpTxt"></span></div>
 
-    <div class="section-head" style="margin-bottom:14px"><div><h2 style="font-size:1.4rem">Par chanson</h2></div></div>
+    <div class="section-head" style="margin-bottom:12px"><div><h2 style="font-size:1.4rem">Hauts faits</h2></div></div>
+    <div class="badge-grid stagger" id="badges"></div>
+
+    <div class="section-head" style="margin:26px 0 14px"><div><h2 style="font-size:1.4rem">Par chanson</h2></div></div>
     <div id="rows"></div>
   </main>
 
   <script>
-    import { guard, getSongs, getProgress, sections, refrain, langLabel, esc } from '../lib/refrao';
+    import { guard, getSongs, getProgress, sections, refrain, langLabel, esc, levelInfo, badgeList } from '../lib/refrao';
     import { withBase } from '../lib/paths';
     import * as SRS from '../lib/srs';
 
@@ -50,10 +54,42 @@ import Base from '../layouts/Base.astro';
         const el = document.getElementById(id);
         if (el) el.textContent = v;
       };
+      void recent;
+      const li = levelInfo(prog.xp ?? 0);
+      set('stLevel', String(li.lvl));
+      set('stXp', (prog.xp ?? 0) + ' XP au total');
       set('stCefr', (profile?.cefr as string) ?? 'A2');
       set('stMastered', String(st.mastered));
       set('stDone', String(Object.values(prog.songs ?? {}).filter(x => x.completed).length));
-      set('stRate', recent.length ? Math.round((recent.filter(Boolean).length / recent.length) * 100) + '%' : '—');
+
+      const pbar = document.getElementById('pxpBar');
+      if (pbar) requestAnimationFrame(() => (pbar.style.width = li.pct + '%'));
+      set('pxpTxt', `${li.into} / ${li.need} XP avant le niveau ${li.lvl + 1}`);
+
+      const discovered = Object.values(prog.songs ?? {}).filter(x => x.discovered).length;
+      const completed = Object.values(prog.songs ?? {}).filter(x => x.completed).length;
+      const full = Object.values(prog.songs ?? {}).filter(x => x.full).length;
+      const streak = (profile as { streak?: { count?: number } } | null)?.streak?.count ?? 0;
+      const badges = badgeList({ discovered, completed, full, mastered: st.mastered, level: li.lvl, streak });
+      let seen: string[] = [];
+      try {
+        seen = JSON.parse(localStorage.getItem('refrao_badges') || '[]');
+      } catch {
+        seen = [];
+      }
+      const earnedIds = badges.filter(b => b.earned).map(b => b.id);
+      const newly = earnedIds.filter(id => !seen.includes(id));
+      localStorage.setItem('refrao_badges', JSON.stringify(earnedIds));
+      const chk =
+        '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg>';
+      const bel = document.getElementById('badges');
+      if (bel)
+        bel.innerHTML = badges
+          .map(
+            b =>
+              `<div class="badge-item ${b.earned ? 'earned' : 'locked'}${newly.includes(b.id) ? ' new' : ''}"><div class="bi-ic">${b.earned ? chk : ''}</div><div class="bi-tx"><div class="bi-nm">${esc(b.name)}</div><div class="bi-ds">${esc(b.desc)}</div></div></div>`
+          )
+          .join('');
 
       const rows = document.getElementById('rows');
       if (!rows) return;
