@@ -9,6 +9,7 @@ import {
 } from 'firebase/auth';
 import { collection, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
+import { withBase } from './paths';
 import type { Song, Section, Progress, Profile, Entitlement, Cohort } from './types';
 
 /* ---- langues ---- */
@@ -60,6 +61,11 @@ export function songComplete(s: Song): boolean {
   const secs = sections(s);
   if (!secs.length || !secs.some(x => x.type === 'refrain')) return false;
   return secs.every(sec => sec.lines.every(l => l.pt && l.fr));
+}
+
+export function refrain(s: Song): Section | null {
+  const secs = sections(s);
+  return secs.find(x => x.type === 'refrain') ?? secs[0] ?? null;
 }
 
 /* ---- accès données ---- */
@@ -153,6 +159,26 @@ export async function joinAsLearner(opts: {
     band: bandOf(cf),
     streak: { count: 0, last: null, freezes: 2 },
     createdAt: Date.now()
+  });
+}
+
+/** Garde de page : redirige vers la connexion si déconnecté, et vers l'accueil
+ *  si l'accès "manager" est requis sans le rôle. onAllowed n'est appelé qu'une fois. */
+export function guard(kind: 'any' | 'manager', onAllowed: (state: AuthState) => void): void {
+  let done = false;
+  onAuthProfile(state => {
+    if (!state.user) {
+      location.href = withBase('auth');
+      return;
+    }
+    if (kind === 'manager' && state.profile?.role !== 'manager') {
+      location.href = withBase();
+      return;
+    }
+    if (!done) {
+      done = true;
+      onAllowed(state);
+    }
   });
 }
 
