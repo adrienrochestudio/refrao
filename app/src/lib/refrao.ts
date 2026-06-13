@@ -165,15 +165,15 @@ export function songMetrics(s: Song): { diff: number; length: number; density: n
 }
 export function songMeters(s: Song): string {
   const m = songMetrics(s);
-  // Mot-valeur clair (pas de chiffre, pas de concept abstrait) pour un utilisateur basique.
+  // Phrase complète et autonome (pas de libellé abstrait à part) pour un utilisateur basique.
   const WORDS: Record<'d' | 'l' | 'n', string[]> = {
-    d: ['Facile', 'Moyen', 'Difficile', 'Expert'],
-    l: ['Courte', 'Moyenne', 'Longue', 'Très longue'],
-    n: ['Simple', 'Varié', 'Riche', 'Très riche']
+    d: ['Niveau facile', 'Niveau moyen', 'Niveau difficile', 'Niveau expert'],
+    l: ['Chanson courte', 'Chanson moyenne', 'Chanson longue', 'Chanson très longue'],
+    n: ['Vocabulaire simple', 'Vocabulaire varié', 'Vocabulaire riche', 'Vocabulaire très riche']
   };
-  const row = (label: string, lvl: number, cls: 'd' | 'l' | 'n', hint: string): string =>
-    `<div class="meter ${cls}" title="${hint}"><span class="ml">${label}</span><span class="mv">${WORDS[cls][lvl - 1]}</span><span class="seg s${lvl}">${'<i></i>'.repeat(SEG)}</span></div>`;
-  return `<div class="meters">${row('Difficulté', m.diff, 'd', 'À quel point la chanson est dure')}${row('Longueur', m.length, 'l', 'Quantité de paroles à apprendre')}${row('Vocabulaire', m.density, 'n', 'Mots simples et répétés, ou variés et riches')}</div>`;
+  const row = (lvl: number, cls: 'd' | 'l' | 'n', hint: string): string =>
+    `<div class="meter ${cls}" title="${hint}"><span class="mv">${WORDS[cls][lvl - 1]}</span><span class="seg s${lvl}">${'<i></i>'.repeat(SEG)}</span></div>`;
+  return `<div class="meters">${row(m.diff, 'd', 'À quel point la chanson est dure à apprendre')}${row(m.length, 'l', 'Quantité de paroles à apprendre')}${row(m.density, 'n', 'Mots simples et répétés, ou variés et riches')}</div>`;
 }
 
 // Niveau à partir de l'XP cumulée. Le palier L->L+1 coûte 100*L (100, 200, 300…).
