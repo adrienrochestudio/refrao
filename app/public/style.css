@@ -595,7 +595,7 @@ h1 .em{color:var(--blue);font-style:normal}
 
 /* ---- Jauges de carte : Difficulté / Longueur / Densité (visuel, pas de chiffres bruts) ---- */
 .meters{display:flex;flex-direction:column;gap:6px;margin-top:8px}
-.meter{display:grid;grid-template-columns:78px 1fr auto;align-items:center;gap:8px}
+.meter{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px}
 .meter .ml{font-family:var(--font-mono);font-size:.6rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-mute)}
 .meter .mv{font-size:.8rem;font-weight:600;color:var(--text)}
 .meter .seg{display:inline-flex;gap:3px}
