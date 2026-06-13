@@ -665,13 +665,13 @@ function renderClozeQ(): void {
   const wrap = $id('exWrap');
   if (wrap)
     wrap.innerHTML = `
-    <div class="ex-card">
+    <div class="ex-card${hasAudio ? ' ex-listen' : ''}">
       <div class="ex-top"><button class="close" onclick="quitToSong('${ss.song.id}')">${xIcon()}</button><div class="bar"><i style="width:${pct}%"></i></div></div>
       <div class="ex-tag">${ss.sec.type === 'refrain' ? 'Refrain' : 'Couplet'} · ${langOf()}</div>
-      <div class="ex-q">${hasAudio ? 'Écoute et complète le vers' : 'Complète le vers'}</div>
-      ${hasAudio ? `<button class="listen-btn" id="listenBtn" type="button">${earIcon()}<span>Écouter le vers</span><span class="eq"><i></i><i></i><i></i></span></button>` : ''}
-      <div class="ex-prompt fr-help">${esc(q.fr)}</div>
+      <div class="ex-q">${hasAudio ? 'Écoute, puis complète' : 'Complète le vers'}</div>
+      ${hasAudio ? `<div class="audio-wrap"><button class="audio-hero" id="listenBtn" type="button" aria-label="Réécouter">${earIcon()}</button><div class="audio-cap">Touche pour réécouter</div></div>` : ''}
       <div class="cloze">${lineHtml}</div>
+      <div class="ex-prompt fr-help">${esc(q.fr)}</div>
       ${answerArea}
       ${foot(q.mode === 'type')}
     </div>`;
@@ -686,11 +686,15 @@ function wireCloze(q: any): void {
   if (lb) {
     const offset = (S.sess.song as Song).offset || 0;
     const dur = q.tEnd != null ? q.tEnd - q.t : 4;
-    lb.onclick = () => {
+    const play = (): void => {
       lb.classList.add('playing');
       playLine(q.t, q.tEnd, offset);
       window.setTimeout(() => lb.classList.remove('playing'), Math.max(800, dur * 1000 + 300));
     };
+    lb.onclick = play;
+    // Lecture automatique : l'apprenant est « dans le truc ». Si l'autoplay est
+    // bloqué (politique navigateur, lecteur pas prêt), il touche le bouton.
+    window.setTimeout(play, 350);
   }
   const check = $id('checkBtn') as HTMLButtonElement | null;
   if (!check) return;
