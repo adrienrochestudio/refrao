@@ -25,6 +25,18 @@ export const langLabel = (code?: string): string =>
 /* ---- CEFR / bandes / placement / genres ---- */
 export const CEFR = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const;
 export const GENRES = [
+  // Styles brésiliens en tête (catalogue lusophone d'abord). Valeurs exactes :
+  // le genre d'une chanson DOIT correspondre à la catégorie de cohorte (filtre apprenant).
+  'MPB',
+  'Samba',
+  'Bossa Nova',
+  'Sertanejo',
+  'Forró',
+  'Pagode',
+  'Axé',
+  'Funk',
+  'Tropicália',
+  // Styles génériques (autres langues / international).
   'Pop',
   'Rock',
   'Hip-hop',
