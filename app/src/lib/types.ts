@@ -65,3 +65,12 @@ export interface Entitlement {
   plan: string | null;
   validUntil: number | null;
 }
+
+export interface Cohort {
+  code: string;
+  managerUid?: string;
+  lang?: string;
+  level?: string;
+  category?: string;
+  createdAt?: number;
+}

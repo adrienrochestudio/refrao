@@ -7,8 +7,9 @@ import { withBase } from '../lib/paths';
 interface Props {
   title?: string;
   active?: string;
+  chrome?: boolean; // false = en-tête minimal (marque seule), pour la page de connexion
 }
-const { title = 'refrão', active } = Astro.props;
+const { title = 'refrão', active, chrome = true } = Astro.props;
 ---
 
 <!doctype html>
@@ -30,11 +31,19 @@ const { title = 'refrão', active } = Astro.props;
 
     <header class="topbar">
       <a class="brand" href={withBase()}><span class="dot"></span><b>refrão</b></a>
-      <nav class="nav">
-        <a href={withBase('apprendre')} data-page="learn" class={active === 'learn' ? 'on' : undefined}>Apprendre</a>
-        <a href={withBase('progression')} data-page="prog" class={active === 'prog' ? 'on' : undefined}>Progression</a>
-      </nav>
-      <div id="authSlot" style="display:flex;gap:8px;align-items:center"></div>
+      {
+        chrome && (
+          <nav class="nav">
+            <a href={withBase('apprendre')} data-page="learn" class={active === 'learn' ? 'on' : undefined}>
+              Apprendre
+            </a>
+            <a href={withBase('progression')} data-page="prog" class={active === 'prog' ? 'on' : undefined}>
+              Progression
+            </a>
+          </nav>
+        )
+      }
+      {chrome && <div id="authSlot" style="display:flex;gap:8px;align-items:center" />}
     </header>
 
     <slot />
