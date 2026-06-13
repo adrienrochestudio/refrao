@@ -34,9 +34,10 @@
      - npm install firebase-admin @anthropic-ai/sdk   (depuis ~/refrao)
 
    Options : --lang pt (langue d'origine), --band 1|2|3 (forçage),
-             --dry (n'écrit pas dans Firestore, affiche le doc),
-             --id mon-id (sinon dérivé de l'artiste-titre),
-             --prep-file <chemin> (défaut tools/song-prep.json).
+             --youtube <url|id> (moteur karaoké, gratuit), --dry (affiche
+             sans écrire), --id mon-id (sinon dérivé de l'artiste-titre),
+             --lyrics-file <chemin> (paroles collées à la main si LRCLIB
+             n'a rien ; non synchronisées), --prep-file <chemin>.
    ============================================================ */
 
 import { readFile, writeFile } from 'node:fs/promises';
@@ -353,9 +354,22 @@ async function fetchTrackAndLyrics() {
   const track = await fetchDeezerTrack(trackId);
   console.log(`✓ Deezer : « ${track.title} » — ${track.artist} (${track.durationSec}s, id ${track.deezerId})`);
 
-  const lyrics = await fetchLyrics(track);
-  if (!lyrics.lines.length) throw new Error('Aucune parole trouvée sur LRCLIB.');
-  console.log(`✓ Paroles : ${lyrics.lines.length} lignes, ${lyrics.synced ? 'SYNCHRONISÉES (karaoké)' : 'non synchronisées'}.`);
+  // Secours paroles : si LRCLIB n'a rien (ou si on force --lyrics-file), on prend un
+  // fichier texte collé à la main (depuis Genius ou ailleurs). Non synchronisé : le
+  // karaoké retombe en lecture simple, mais la chanson reste enrichissable.
+  const lyricsFile = arg('lyrics-file');
+  let lyrics;
+  if (lyricsFile) {
+    const txt = await readFile(lyricsFile, 'utf8');
+    lyrics = { lines: txt.split('\n').map((t) => t.trim()).filter(Boolean).map((text) => ({ text })), synced: false };
+    console.log(`✓ Paroles : ${lyrics.lines.length} lignes depuis ${lyricsFile} (non synchronisées).`);
+  } else {
+    lyrics = await fetchLyrics(track);
+    if (!lyrics.lines.length) {
+      throw new Error('Aucune parole sur LRCLIB. Colle les paroles dans un fichier et relance avec --lyrics-file <chemin>.');
+    }
+    console.log(`✓ Paroles : ${lyrics.lines.length} lignes, ${lyrics.synced ? 'SYNCHRONISÉES (karaoké)' : 'non synchronisées'}.`);
+  }
   return { track, lyrics };
 }
 
