@@ -162,7 +162,7 @@ function renderChooser(): void {
           <div class="lx-top"><span class="lx-lvl">Niv. ${li.lvl}</span><span class="lx-pts">${li.into}/${li.need} XP</span></div>
           <div class="lx-bar"><i style="width:${li.pct}%"></i></div>
         </div>
-        <div class="lh-streak ${streak ? '' : 'cold'}">${flameIcon()}<b>${streak}</b><span>j.</span></div>
+        <div class="lh-streak ${streak ? '' : 'cold'}" title="${streak ? 'Reviens chaque jour pour garder ta série' : 'Apprends aujourd’hui pour lancer ta série'}">${flameIcon()}<b>${streak}</b><span>jour${streak > 1 ? 's' : ''} de série</span></div>
       </div>
     </div>`;
   const na = nextActivity();

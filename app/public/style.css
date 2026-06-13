@@ -634,6 +634,12 @@ h1 .em{color:var(--blue);font-style:normal}
 .badge-item.new{border-color:var(--green);animation:badgepop .6s var(--ease)}
 @keyframes badgepop{0%{transform:scale(.92)}55%{transform:scale(1.05)}100%{transform:scale(1)}}
 
+/* ---- Passe 4 : micro-interactions + emphase du prochain pas (persona) ---- */
+.choice:active,.tile:active,.song-card:active,.continue-card:active,.pstep.current:active,.btn:active{transform:scale(.985)}
+.pstep.current{animation:stepBreath 2.4s ease-in-out infinite}
+@keyframes stepBreath{0%,100%{box-shadow:0 0 0 1px var(--blue),0 10px 26px -16px var(--blue-glow)}50%{box-shadow:0 0 0 1px var(--blue),0 14px 36px -8px var(--blue-glow)}}
+.pstep.current::after{content:"\203A";margin-left:auto;padding-left:10px;font-size:1.7rem;font-weight:700;color:var(--blue);line-height:1}
+
 /* ---- Karaoké (découverte) ---- */
 .kara{margin:0 0 16px}
 .kara-frame{position:relative;width:100%;max-width:520px;margin:0 auto;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000;box-shadow:0 6px 24px rgba(0,0,0,.18)}
