@@ -61,6 +61,12 @@ const dry = !!arg('dry');
 const forcedId = arg('id');
 const prepMode = !!arg('prep');
 const commitMode = !!arg('commit');
+const ytArg = arg('youtube');
+const parseYouTubeId = (v) => {
+  if (!v || v === true) return '';
+  const m = String(v).match(/(?:v=|youtu\.be\/|\/embed\/)([\w-]{11})/);
+  return m ? m[1] : String(v).trim();
+};
 const prepFile = new URL('./' + (arg('prep-file') || 'song-prep.json'), import.meta.url);
 
 if (!commitMode && !deezerUrl && !(argTitle && argArtist)) {
@@ -248,7 +254,7 @@ async function enrich(track, numberedLines, srcLang) {
 }
 
 /* ---------- assemblage du document Song ---------- */
-function assembleSong({ id, track, lyrics, enriched, srcLang }) {
+function assembleSong({ id, track, lyrics, enriched, srcLang, youtubeId }) {
   const base = {
     id,
     title: track.title,
@@ -261,6 +267,7 @@ function assembleSong({ id, track, lyrics, enriched, srcLang }) {
     synced: !!lyrics.synced,
     source: enriched ? 'lrclib+llm' : 'lrclib'
   };
+  if (youtubeId) base.youtubeId = youtubeId;
 
   if (!enriched) {
     // Sans enrichissement : une seule section brute, fr vide (à compléter au manager).
@@ -321,7 +328,8 @@ async function runCommit() {
   }
   const lyrics = { lines: payload.lines, synced: payload.synced };
   const id = forcedId || payload.id;
-  const song = assembleSong({ id, track: payload.track, lyrics, enriched: payload.enriched, srcLang: payload.lang });
+  const youtubeId = parseYouTubeId(ytArg) || payload.youtubeId || '';
+  const song = assembleSong({ id, track: payload.track, lyrics, enriched: payload.enriched, srcLang: payload.lang, youtubeId });
 
   if (dry) {
     console.log('\n--- DRY RUN (non écrit) ---\n');
@@ -359,6 +367,7 @@ async function runPrep() {
     id,
     lang,
     synced: !!lyrics.synced,
+    youtubeId: parseYouTubeId(ytArg),
     track,
     lines: lyrics.lines, // [{ t?, text }] — l'index dans ce tableau = "i" attendu dans enriched
     enriched: null, // <- Claude Code remplit ce champ selon ENRICH_SCHEMA (sections[{type,lines[{i,fr,words[{w,lemma,gloss}]}]}], cefr, band, genre, pairs)
@@ -382,7 +391,7 @@ async function runWithKey() {
     console.log('⚠ Ni --prep ni ANTHROPIC_API_KEY : import des paroles synchronisées sans enrichissement (fr vide). Pour enrichir sans clé, utilise --prep.');
   }
   const id = forcedId || `${slug(track.artist)}-${slug(track.title)}`;
-  const song = assembleSong({ id, track, lyrics, enriched, srcLang: lang });
+  const song = assembleSong({ id, track, lyrics, enriched, srcLang: lang, youtubeId: parseYouTubeId(ytArg) });
 
   if (dry) {
     console.log('\n--- DRY RUN (non écrit) ---\n');

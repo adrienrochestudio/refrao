@@ -22,7 +22,7 @@ import {
   LANGS
 } from './refrao';
 import * as SRS from './srs';
-import type { Song, Section, Progress, Profile, Cohort } from './types';
+import type { Song, Section, Line, Progress, Profile, Cohort } from './types';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 interface AppState {
@@ -301,27 +301,146 @@ function startDiscovery(songId: string): void {
         <h2>${esc(s.title)}</h2>
         <div class="art">${esc(s.artist || '')}</div>
         ${s.deezer ? `<a class="deezer" href="${esc(s.deezer)}" target="_blank" rel="noopener">${deezerIcon()} Écouter sur Deezer</a>` : ''}
-        <p class="disc-note">${band === 1 ? 'Traduction affichée. Écoute en lisant.' : band === 2 ? 'Clique une ligne pour révéler sa traduction.' : 'Clique un mot pour son sens.'}</p>
+        <p class="disc-note">${s.youtubeId ? 'Lance la lecture : les paroles défilent en rythme. ' : ''}${band === 1 ? 'Traduction affichée. Écoute en lisant.' : band === 2 ? 'Clique une ligne pour révéler sa traduction.' : 'Clique un mot pour son sens.'}</p>
       </div>
+      ${s.youtubeId ? `<div class="kara"><div class="kara-frame"><div id="ytFrame"></div></div></div>` : ''}
       <div class="lyrics">${body}</div>
       <div class="ex-foot"><span></span><div class="foot-actions"><button class="btn btn-primary" onclick="markDiscovered('${s.id}')">J'ai écouté — commencer</button></div></div>
     </div>`;
   wireLyrics(band);
+  if (s.youtubeId) void setupKaraoke(s);
+}
+
+/* ---------- Karaoké : lecture pleine + synchro (YouTube, gratuit, sans login) ----------
+   Moteur découplé de la source : il lit getCurrentTime() et surligne la ligne dont le
+   timecode (Line.t, repère plein morceau) est atteint. Brancher Deezer SDK / autre
+   plus tard = remplacer le fournisseur de temps, sans toucher au reste. */
+interface Kara {
+  player: any; // YT.Player
+  raf: number;
+  active: number;
+}
+let kara: Kara | null = null;
+
+function loadYT(): Promise<any> {
+  const w = window as any;
+  if (w.YT && w.YT.Player) return Promise.resolve(w.YT);
+  return new Promise(resolve => {
+    const prev = w.onYouTubeIframeAPIReady;
+    w.onYouTubeIframeAPIReady = () => {
+      if (typeof prev === 'function') prev();
+      resolve(w.YT);
+    };
+    if (!document.getElementById('yt-iframe-api')) {
+      const sc = document.createElement('script');
+      sc.id = 'yt-iframe-api';
+      sc.src = 'https://www.youtube.com/iframe_api';
+      document.head.appendChild(sc);
+    }
+  });
+}
+
+function stopKaraoke(): void {
+  if (!kara) return;
+  cancelAnimationFrame(kara.raf);
+  try {
+    kara.player.destroy();
+  } catch {
+    /* déjà détruit */
+  }
+  kara = null;
+}
+
+async function setupKaraoke(s: Song): Promise<void> {
+  stopKaraoke();
+  const mount = $id('ytFrame');
+  if (!mount || !s.youtubeId) return;
+  const YT = await loadYT();
+  if (!document.body.contains(mount)) return; // vue quittée pendant le chargement
+
+  const offset = s.offset || 0;
+  const lineEls = Array.from(document.querySelectorAll<HTMLElement>('.lyrics .ly-line'));
+  const times = lineEls.map(el => parseFloat(el.dataset.t || 'NaN'));
+
+  // Clic sur une ligne = saut à son moment dans la chanson (sauf clic sur un mot).
+  lineEls.forEach((el, i) => {
+    if (isNaN(times[i])) return;
+    el.classList.add('seekable');
+    el.addEventListener('click', ev => {
+      if ((ev.target as HTMLElement).closest('.w')) return;
+      kara?.player.seekTo(times[i] + offset, true);
+      kara?.player.playVideo();
+    });
+  });
+
+  const player = new YT.Player(mount, {
+    videoId: s.youtubeId,
+    playerVars: { rel: 0, modestbranding: 1, playsinline: 1 },
+    events: {
+      onStateChange: (e: any) => {
+        if (e.data === YT.PlayerState.PLAYING) tick();
+      }
+    }
+  });
+  kara = { player, raf: 0, active: -1 };
+
+  function tick(): void {
+    if (!kara) return;
+    const now = (kara.player.getCurrentTime?.() ?? 0) - offset;
+    let idx = -1;
+    for (let i = 0; i < times.length; i++) {
+      if (!isNaN(times[i]) && times[i] <= now + 0.12) idx = i;
+    }
+    if (idx !== kara.active) {
+      if (kara.active >= 0) lineEls[kara.active]?.classList.remove('kara-active');
+      const el = idx >= 0 ? lineEls[idx] : null;
+      if (el) {
+        el.classList.add('kara-active');
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        if (S.band === 2) {
+          const t = el.querySelector('.t') as HTMLElement | null;
+          if (t) {
+            t.textContent = el.dataset.fr || '';
+            t.classList.remove('hidden-t');
+          }
+        }
+      }
+      kara.active = idx;
+    }
+    kara.raf = requestAnimationFrame(tick);
+  }
 }
 function sectionLyrics(sec: Section, band: number): string {
   const tag = sec.type === 'refrain' ? 'Refrain' : 'Couplet';
   const lines = sec.lines
     .map(l => {
-      if (band === 1) return `<div class="ly-line both"><span class="o">${esc(l.pt)}</span><span class="t">${esc(l.fr)}</span></div>`;
+      const dt = l.t != null ? ` data-t="${l.t}"` : '';
+      if (band === 1) return `<div class="ly-line both"${dt}><span class="o">${esc(l.pt)}</span><span class="t">${esc(l.fr)}</span></div>`;
       if (band === 2)
-        return `<div class="ly-line reveal" data-fr="${esc(l.fr)}"><span class="o">${esc(l.pt)}</span><span class="t hidden-t"></span></div>`;
-      return `<div class="ly-line words">${l.pt
-        .split(/\s+/)
-        .map(w => `<span class="w" data-w="${esc(w)}">${esc(w)}</span>`)
-        .join(' ')}</div>`;
+        return `<div class="ly-line reveal" data-fr="${esc(l.fr)}"${dt}><span class="o">${esc(l.pt)}</span><span class="t hidden-t"></span></div>`;
+      return `<div class="ly-line words"${dt}>${wordsHtml(l)}</div>`;
     })
     .join('');
   return `<div class="ly-sec ${sec.type}"><div class="ly-tag">${tag}</div>${lines}</div>`;
+}
+
+// Rend les mots cliquables. Si la ligne porte des données enrichies (words[]),
+// chaque mot connu reçoit son SENS EN CONTEXTE (data-gloss) — la vraie correction
+// de la reconnaissance de mots, qui résout conjugaisons/accords via le lemme.
+const stripPunct = (w: string): string => w.replace(/[.,;:!?¿¡"'“”«»()…]/g, '');
+function wordsHtml(l: Line): string {
+  const glossOf = new Map<string, string>();
+  (l.words || []).forEach(w => glossOf.set(norm(stripPunct(w.w)), w.gloss || ''));
+  return l.pt
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(tok => {
+      const g = glossOf.get(norm(stripPunct(tok)));
+      return g
+        ? `<span class="w has-sense" data-w="${esc(tok)}" data-gloss="${esc(g)}">${esc(tok)}</span>`
+        : `<span class="w" data-w="${esc(tok)}">${esc(tok)}</span>`;
+    })
+    .join(' ');
 }
 function wireLyrics(band: number): void {
   if (band === 2)
@@ -336,8 +455,9 @@ function wireLyrics(band: number): void {
     });
   if (band === 3)
     document.querySelectorAll<HTMLElement>('.ly-line.words .w').forEach(el => {
-      el.onclick = () => {
-        const tr = wordSense(el.dataset.w || '');
+      el.onclick = (e) => {
+        e.stopPropagation(); // ne pas déclencher le seek karaoké de la ligne
+        const tr = el.dataset.gloss || wordSense(el.dataset.w || '');
         toast(tr ? (el.dataset.w || '') + ' — ' + tr : 'sens non renseigné');
       };
     });
@@ -349,6 +469,7 @@ function wordSense(w: string): string | null {
   return p ? p.fr : null;
 }
 async function markDiscovered(id: string): Promise<void> {
+  stopKaraoke();
   if (!S.prog.songs) S.prog.songs = {};
   S.prog.songs[id] = S.prog.songs[id] ?? {};
   S.prog.songs[id]!.discovered = true;
@@ -741,6 +862,7 @@ function confetti(): void {
   setTimeout(() => c.remove(), 3500);
 }
 function quitToSong(id: string): void {
+  stopKaraoke();
   openSong(id);
 }
 
@@ -798,6 +920,8 @@ declare global {
     quitToSong: (id: string) => void;
     declareShadow: (id: string) => void;
     startReview: () => void;
+    YT?: any;
+    onYouTubeIframeAPIReady?: () => void;
   }
 }
 Object.assign(window, { showChooser, openSong, startDiscovery, markDiscovered, startTraining, quitToSong, declareShadow, startReview });

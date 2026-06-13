@@ -44,6 +44,8 @@ export interface Song {
   preview?: string;
   synced?: boolean;    // true quand les lignes portent des timecodes (LRC) => karaoké dispo
   source?: string;     // provenance de l'enrichissement (ex: 'lrclib+llm') pour la traçabilité
+  youtubeId?: string;  // id vidéo YouTube : moteur de lecture pleine + synchro karaoké (gratuit, sans login)
+  offset?: number;     // décalage (s) à ajouter aux timecodes si la vidéo a une intro avant la chanson
   // Ancien modèle à plat, conservé en lecture seule pour la rétrocompat.
   pt?: string;
   fr?: string;

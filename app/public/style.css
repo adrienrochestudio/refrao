@@ -566,3 +566,13 @@ h1 .em{color:var(--blue);font-style:normal}
 .song-card.incomplete{opacity:.72;border-style:dashed}
 .song-card .tags{font-size:.74rem;color:var(--text-mute);margin-top:6px;font-style:italic}
 .song-card .badges + .ttl{margin-top:34px}
+
+/* ---- Karaoké (découverte) ---- */
+.kara{margin:0 0 16px}
+.kara-frame{position:relative;width:100%;max-width:520px;margin:0 auto;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000;box-shadow:0 6px 24px rgba(0,0,0,.18)}
+.kara-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.ly-line{transition:background .18s ease,transform .18s ease,opacity .18s ease}
+.ly-line.seekable{cursor:pointer}
+.ly-line.kara-active{background:var(--blue-soft);transform:scale(1.012)}
+.ly-line.kara-active .o{color:var(--text);font-weight:600}
+.ly-line.words .w.has-sense{border-bottom-style:solid;border-color:var(--blue)}
