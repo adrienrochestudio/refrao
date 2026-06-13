@@ -699,28 +699,22 @@ function wireCloze(q: any): void {
   const check = $id('checkBtn') as HTMLButtonElement | null;
   if (!check) return;
   if (q.mode === 'choice') {
+    check.style.display = 'none'; // un seul tap : pas de bouton « Valider »
     document.querySelectorAll<HTMLButtonElement>('.choice').forEach(btn => {
       btn.onclick = () => {
         if (S.sess.locked) return;
-        document.querySelectorAll('.choice').forEach(b => b.classList.remove('sel'));
-        btn.classList.add('sel');
-        S.sess.sel = btn.dataset.o;
+        const good = match(btn.dataset.o || '', q.answer);
         const blank = $id('blank');
         if (blank) blank.textContent = btn.dataset.o || '';
-        check.disabled = false;
+        document.querySelectorAll<HTMLButtonElement>('.choice').forEach(b => {
+          if (match(b.dataset.o || '', q.answer)) b.classList.add('good');
+          else if (b === btn) b.classList.add('bad');
+          else b.classList.add('dim');
+        });
+        gradeCloze(q, good);
+        settle(good, good ? null : 'Réponse : ' + q.answer);
       };
     });
-    check.onclick = () => {
-      if (S.sess.locked || S.sess.sel == null) return;
-      const good = match(S.sess.sel, q.answer);
-      document.querySelectorAll<HTMLButtonElement>('.choice').forEach(b => {
-        if (match(b.dataset.o || '', q.answer)) b.classList.add('good');
-        else if (b.classList.contains('sel')) b.classList.add('bad');
-        else b.classList.add('dim');
-      });
-      gradeCloze(q, good);
-      settle(good);
-    };
   } else {
     const inp = $id('wIn') as HTMLInputElement | null;
     const hintBtn = $id('hintBtn') as HTMLButtonElement | null;
@@ -783,7 +777,7 @@ async function finishTraining(): Promise<void> {
   S.prog.songs[s.id]!.clozeLevel = adj;
   const mastered = SRS.sectionMastered(s, ss.sec);
   const xpBefore = S.prog.xp || 0;
-  const gain = ss.correct * 10 + (mastered ? 60 : 0);
+  const gain = (ss.xpEarned || 0) + (mastered ? 60 : 0);
   S.prog.xp = xpBefore + gain;
   const liBefore = levelInfo(xpBefore);
   const liAfter = levelInfo(S.prog.xp);
@@ -960,7 +954,7 @@ async function finishReview(): Promise<void> {
   const total = ss.qs.length;
   const rate = total ? Math.round((ss.correct / total) * 100) : 100;
   const xpBefore = S.prog.xp || 0;
-  const gain = ss.correct * 8;
+  const gain = ss.xpEarned || 0;
   S.prog.xp = xpBefore + gain;
   const liBefore = levelInfo(xpBefore);
   const liAfter = levelInfo(S.prog.xp);
@@ -1000,10 +994,40 @@ function renderHint(ans: string): void {
 function settle(correct: boolean, msg?: string | null): void {
   if (S.sess.locked) return;
   S.sess.locked = true;
-  if (correct) S.sess.correct++;
+  if (correct) {
+    S.sess.correct++;
+    S.sess.combo = (S.sess.combo || 0) + 1;
+    const bonus = Math.min(10, (S.sess.combo - 1) * 2); // bonus de série
+    const earned = 10 + bonus;
+    S.sess.xpEarned = (S.sess.xpEarned || 0) + earned;
+    floatGain('+' + earned);
+    if (S.sess.combo >= 3) comboFlash(S.sess.combo);
+  } else {
+    S.sess.combo = 0;
+  }
   feedback(correct, msg);
   burst(correct);
-  setTimeout(advance, correct ? 850 : 1550);
+  setTimeout(advance, correct ? 680 : 1500);
+}
+// Dopamine : +XP qui jaillit à chaque bonne réponse.
+function floatGain(txt: string): void {
+  const card = document.querySelector('.ex-card');
+  if (!card) return;
+  const el = document.createElement('div');
+  el.className = 'xp-float';
+  el.textContent = txt;
+  card.appendChild(el);
+  setTimeout(() => el.remove(), 1100);
+}
+// Dopamine : flash de série quand les bonnes réponses s'enchaînent.
+function comboFlash(n: number): void {
+  const card = document.querySelector('.ex-card');
+  if (!card) return;
+  const el = document.createElement('div');
+  el.className = 'combo-flash';
+  el.textContent = n + ' d’affilée !';
+  card.appendChild(el);
+  setTimeout(() => el.remove(), 1000);
 }
 function advance(): void {
   S.sess.idx++;
