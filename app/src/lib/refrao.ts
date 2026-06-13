@@ -138,6 +138,38 @@ export function songComplete(s: Song): boolean {
   return secs.every(sec => sec.lines.every(l => l.pt && l.fr));
 }
 
+// Jauges visuelles d'une chanson : plutôt que des chiffres bruts (mots/vers),
+// on donne à l'apprenant un ressenti immédiat — Difficulté (CEFR), Longueur
+// (nombre de vers) et Densité (diversité lexicale = varié/dense). Niveaux 1..4.
+const SEG = 4;
+const segClamp = (n: number): number => Math.max(1, Math.min(SEG, Math.round(n)));
+export function songMetrics(s: Song): { diff: number; length: number; density: number } {
+  const secs = sections(s);
+  const lineCount = secs.reduce((n, sec) => n + sec.lines.length, 0);
+  const toks: string[] = [];
+  secs.forEach(sec =>
+    sec.lines.forEach(l =>
+      (l.pt || '').split(/\s+/).forEach(w => {
+        const t = norm(w.replace(/[.,;:!?¿¡"'«»…()]/g, ''));
+        if (t) toks.push(t);
+      })
+    )
+  );
+  const total = toks.length || 1;
+  const ratio = new Set(toks).size / total; // diversité lexicale : haut = dense
+  const diffMap: Record<string, number> = { A1: 1, A2: 2, B1: 2, B2: 3, C1: 4, C2: 4 };
+  const diff = diffMap[s.cefr || ''] ?? Math.min(4, (s.band || 1) + 1);
+  const length = lineCount <= 20 ? 1 : lineCount <= 35 ? 2 : lineCount <= 50 ? 3 : 4;
+  const density = ratio >= 0.7 ? 4 : ratio >= 0.55 ? 3 : ratio >= 0.4 ? 2 : 1;
+  return { diff: segClamp(diff), length: segClamp(length), density: segClamp(density) };
+}
+export function songMeters(s: Song): string {
+  const m = songMetrics(s);
+  const meter = (label: string, lvl: number, cls: string): string =>
+    `<div class="meter ${cls}" title="${label}"><span class="ml">${label}</span><span class="seg s${lvl}">${'<i></i>'.repeat(SEG)}</span></div>`;
+  return `<div class="meters">${meter('Difficulté', m.diff, 'd')}${meter('Longueur', m.length, 'l')}${meter('Densité', m.density, 'n')}</div>`;
+}
+
 export function refrain(s: Song): Section | null {
   const secs = sections(s);
   return secs.find(x => x.type === 'refrain') ?? secs[0] ?? null;

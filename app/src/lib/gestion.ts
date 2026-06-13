@@ -13,7 +13,7 @@ import {
   changeCohortCode,
   saveSong,
   deleteSong,
-  sections,
+  songMeters,
   songComplete,
   autoSections,
   sectionsToText,
@@ -208,7 +208,6 @@ function renderBank(): void {
   listEl.innerHTML = sorted
     .map(s => {
       const complete = songComplete(s);
-      const vers = sections(s).reduce((n, sec) => n + sec.lines.length, 0);
       return `<div class="song-card ${complete ? '' : 'incomplete'}" onclick="openEditor('${s.id}')">
       <div class="acts">
         <a class="icbtn" href="${withBase('apprendre')}?song=${encodeURIComponent(s.id)}" onclick="event.stopPropagation()" title="Apprendre">
@@ -226,11 +225,7 @@ function renderBank(): void {
       <div class="ttl">${esc(s.title)}</div>
       <div class="art">${esc(s.artist || '—')}</div>
       ${s.tags ? `<div class="tags">${esc(s.tags)}</div>` : ''}
-      <div class="meta">
-        <span><span class="v">${s.pairs?.length || 0}</span> mots</span>
-        <span><span class="v">${vers}</span> vers</span>
-        ${s.cefr ? `<span class="v">${esc(s.cefr)}</span>` : ''}
-      </div>
+      ${songMeters(s)}
     </div>`;
     })
     .join('');

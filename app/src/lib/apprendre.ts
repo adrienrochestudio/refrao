@@ -10,6 +10,7 @@ import {
   saveProgress,
   touchStreak,
   sections,
+  songMeters,
   refrain,
   songComplete,
   bandOf,
@@ -195,6 +196,7 @@ function renderChooser(): void {
       <div class="cefr-badge b${b}">${esc(s.cefr || ['', 'A2', 'B1', 'C1'][b])}</div>
       <div class="ttl">${esc(s.title)}</div>
       <div class="art">${esc(s.artist || '—')}</div>
+      ${songMeters(s)}
       ${above ? `<div class="above">un cran au-dessus · i+1</div>` : ''}
       ${ps.completed ? `<div class="done-tag">${ps.full ? 'Maîtrise complète' : 'Complétée'}</div>` : ''}
       <div class="prog"><div class="bar"><i style="width:${pct}%"></i></div></div>
