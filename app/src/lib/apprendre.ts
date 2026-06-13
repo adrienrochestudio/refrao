@@ -11,6 +11,7 @@ import {
   touchStreak,
   sections,
   songMeters,
+  levelInfo,
   refrain,
   songComplete,
   bandOf,
@@ -153,9 +154,16 @@ function renderChooser(): void {
   const part = hr < 12 ? 'Bonjour' : hr < 18 ? 'Bon après-midi' : 'Bonsoir';
   const nm = S.profile?.firstName ? ', ' + esc(S.profile.firstName) : '';
   const streak = S.profile?.streak?.count || 0;
+  const li = levelInfo(S.prog.xp || 0);
   const home = `<div class="learn-home">
       <div class="lh-hi"><h3>${part}${nm}</h3><div class="lh-sub">${dueCount ? `${dueCount} carte${dueCount > 1 ? 's' : ''} à revoir aujourd’hui.` : 'Prêt pour une nouvelle leçon ?'}</div></div>
-      <div class="lh-streak ${streak ? '' : 'cold'}">${flameIcon()}<b>${streak}</b><span>j. de suite</span></div>
+      <div class="lh-meta">
+        <div class="lh-xp" title="${S.prog.xp || 0} XP au total">
+          <div class="lx-top"><span class="lx-lvl">Niv. ${li.lvl}</span><span class="lx-pts">${li.into}/${li.need} XP</span></div>
+          <div class="lx-bar"><i style="width:${li.pct}%"></i></div>
+        </div>
+        <div class="lh-streak ${streak ? '' : 'cold'}">${flameIcon()}<b>${streak}</b><span>j.</span></div>
+      </div>
     </div>`;
   const na = nextActivity();
   const cont = na
@@ -512,8 +520,11 @@ async function markDiscovered(id: string): Promise<void> {
   stopKaraoke();
   if (!S.prog.songs) S.prog.songs = {};
   S.prog.songs[id] = S.prog.songs[id] ?? {};
+  const fresh = !S.prog.songs[id]!.discovered;
   S.prog.songs[id]!.discovered = true;
+  if (fresh) S.prog.xp = (S.prog.xp || 0) + 5;
   await saveProgress(S.uid, S.prog);
+  if (fresh) toast('+5 XP — première écoute');
   openSong(id);
 }
 
@@ -766,11 +777,17 @@ async function finishTraining(): Promise<void> {
   if (rate < 80) adj = Math.max(-1, adj - 1);
   else if (rate > 90) adj = Math.min(1, adj + 1);
   S.prog.songs[s.id]!.clozeLevel = adj;
+  const mastered = SRS.sectionMastered(s, ss.sec);
+  const xpBefore = S.prog.xp || 0;
+  const gain = ss.correct * 10 + (mastered ? 60 : 0);
+  S.prog.xp = xpBefore + gain;
+  const liBefore = levelInfo(xpBefore);
+  const liAfter = levelInfo(S.prog.xp);
+  const leveledUp = liAfter.lvl > liBefore.lvl;
   await SRS.save();
   await saveProgress(S.uid, S.prog);
   if (S.profile) await touchStreak(S.uid, S.profile);
-  const mastered = SRS.sectionMastered(s, ss.sec);
-  if (mastered) confetti();
+  if (mastered || leveledUp) confetti();
   const pct = SRS.sectionPct(s, ss.sec);
   const wrap = $id('exWrap');
   if (wrap)
@@ -780,12 +797,37 @@ async function finishTraining(): Promise<void> {
       <h2>${mastered ? (ss.sec.type === 'refrain' ? 'Refrain maîtrisé' : 'Couplet maîtrisé') : 'Bien joué'}</h2>
       <p>${mastered ? 'Tu peux passer à la suite.' : 'Reviens pour consolider — la mémoire se construit par la répétition espacée.'}</p>
       <div class="reward"><div class="r"><div class="n">${rate}%</div><div class="l">réussite</div></div><div class="r"><div class="n">${pct}%</div><div class="l">maîtrise</div></div></div>
+      ${xpReward(liAfter, leveledUp)}
       <div class="finish-acts">
         ${mastered ? '' : `<button class="btn btn-ghost" onclick="startTraining('${s.id}',${ss.si})">Encore une passe</button>`}
         <button class="btn btn-primary" onclick="openSong('${s.id}')">Continuer</button>
       </div>
       <p class="adj-note">${rate < 80 ? 'On allègera un peu la prochaine fois.' : rate > 90 ? 'On corsera un peu la prochaine fois.' : 'Bon rythme : autour de 80–90 %.'}</p>
     </div>`;
+  animateXp(gain, liAfter.pct);
+}
+
+// Bloc de récompense XP (barre de niveau + gain), animé après rendu.
+function xpReward(li: { lvl: number; pct: number }, leveledUp: boolean): string {
+  return `<div class="xp-reward">
+      <div class="xpr-head"><span class="xpr-lvl">${leveledUp ? `Niveau ${li.lvl} atteint !` : `Niveau ${li.lvl}`}</span><span class="xpr-gain" id="xpGain">+0 XP</span></div>
+      <div class="xpr-bar"><i id="xpBar" style="width:0%"></i></div>
+    </div>`;
+}
+function animateXp(gain: number, pct: number): void {
+  requestAnimationFrame(() => {
+    const bar = $id('xpBar');
+    if (bar) bar.style.width = pct + '%';
+  });
+  const g = $id('xpGain');
+  if (!g) return;
+  const start = performance.now();
+  const step = (now: number): void => {
+    const t = Math.min(1, (now - start) / 850);
+    g.textContent = '+' + Math.round(gain * t) + ' XP';
+    if (t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }
 
 /* ---------- Couche C : révision quotidienne ---------- */
@@ -910,12 +952,18 @@ function gradeReview(q: any, good: boolean): void {
   SRS.pushRecent(S.prog, good);
 }
 async function finishReview(): Promise<void> {
-  await SRS.save();
-  await saveProgress(S.uid, S.prog);
-  if (S.profile) await touchStreak(S.uid, S.profile);
   const ss = S.sess;
   const total = ss.qs.length;
   const rate = total ? Math.round((ss.correct / total) * 100) : 100;
+  const xpBefore = S.prog.xp || 0;
+  const gain = ss.correct * 8;
+  S.prog.xp = xpBefore + gain;
+  const liBefore = levelInfo(xpBefore);
+  const liAfter = levelInfo(S.prog.xp);
+  const leveledUp = liAfter.lvl > liBefore.lvl;
+  await SRS.save();
+  await saveProgress(S.uid, S.prog);
+  if (S.profile) await touchStreak(S.uid, S.profile);
   confetti();
   const wrap = $id('exWrap');
   if (wrap)
@@ -925,8 +973,10 @@ async function finishReview(): Promise<void> {
       <h2>Révision terminée</h2>
       <p>${ss.correct}/${total} — la file s'est mise à jour.</p>
       <div class="reward"><div class="r"><div class="n">${rate}%</div><div class="l">réussite</div></div><div class="r"><div class="n">${SRS.stats().mastered}</div><div class="l">cartes maîtrisées</div></div></div>
+      ${xpReward(liAfter, leveledUp)}
       <div class="finish-acts"><button class="btn btn-primary" onclick="showChooser()">Terminer</button></div>
     </div>`;
+  animateXp(gain, liAfter.pct);
 }
 
 /* ---------- briques partagées ---------- */

@@ -170,6 +170,51 @@ export function songMeters(s: Song): string {
   return `<div class="meters">${meter('Difficulté', m.diff, 'd')}${meter('Longueur', m.length, 'l')}${meter('Densité', m.density, 'n')}</div>`;
 }
 
+// Niveau à partir de l'XP cumulée. Le palier L->L+1 coûte 100*L (100, 200, 300…).
+export function levelInfo(xp: number): { lvl: number; into: number; need: number; pct: number } {
+  const x = Math.max(0, Math.floor(xp || 0));
+  let lvl = 1;
+  let need = 100;
+  let acc = 0;
+  while (x >= acc + need) {
+    acc += need;
+    lvl++;
+    need = 100 * lvl;
+  }
+  const into = x - acc;
+  return { lvl, into, need, pct: Math.round((into / need) * 100) };
+}
+
+export interface BadgeDef {
+  id: string;
+  name: string;
+  desc: string;
+  earned: boolean;
+}
+// Hauts faits dérivés de la progression (pas de champ Firestore en plus : tout
+// est calculé). Le déclenchement « nouveau badge » est géré côté page via localStorage.
+export function badgeList(i: {
+  discovered: number;
+  completed: number;
+  full: number;
+  mastered: number;
+  level: number;
+  streak: number;
+}): BadgeDef[] {
+  const d = (id: string, name: string, desc: string, earned: boolean): BadgeDef => ({ id, name, desc, earned });
+  return [
+    d('ecoute', 'Première écoute', 'Découvre ta première chanson', i.discovered >= 1),
+    d('mot', 'Premier mot', 'Maîtrise ton premier mot', i.mastered >= 1),
+    d('complete', 'Chanson complétée', 'Termine une chanson', i.completed >= 1),
+    d('melomane', 'Mélomane', 'Découvre 5 chansons', i.discovered >= 5),
+    d('full', 'Maîtrise complète', 'Refrain + couplets + shadowing', i.full >= 1),
+    d('vocab', 'Vocabulaire solide', 'Maîtrise 25 mots', i.mastered >= 25),
+    d('assidu', 'Assidu', '3 jours d’affilée', i.streak >= 3),
+    d('fidele', 'Fidèle', '7 jours d’affilée', i.streak >= 7),
+    d('niv5', 'Niveau 5', 'Atteins le niveau 5', i.level >= 5)
+  ];
+}
+
 export function refrain(s: Song): Section | null {
   const secs = sections(s);
   return secs.find(x => x.type === 'refrain') ?? secs[0] ?? null;
