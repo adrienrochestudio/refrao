@@ -134,7 +134,7 @@ async function renderCohort(): Promise<void> {
         <div class="code"><span id="cohortCode">${esc(code)}</span>
           <button class="icbtn" id="editCode" title="Modifier l'identifiant"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
         </div>
-        <div class="hint">Transmets ce code à tes apprenants.</div>
+        <div class="hint">Transmettez ce code à vos apprenants.</div>
       </div>
       <div class="count"><div class="n">${learners.length}</div><div class="l">apprenant${learners.length > 1 ? 's' : ''}</div></div>
     </div>
@@ -198,7 +198,7 @@ function renderBank(): void {
       (incomplete ? ` · <span style="color:var(--red)">${incomplete} incomplète${incomplete > 1 ? 's' : ''}</span>` : '');
   if (!SONGS.length) {
     listEl.className = '';
-    listEl.innerHTML = `<div class="empty"><b>Aucune musique pour l'instant</b>Ajoute ta première chanson pour commencer.</div>`;
+    listEl.innerHTML = `<div class="empty"><b>Aucune musique pour l'instant</b>Ajoutez votre première chanson pour commencer.</div>`;
     return;
   }
   const sorted = SONGS.slice().sort(
@@ -301,7 +301,7 @@ function showDzInfo(): void {
 async function importDeezer(): Promise<void> {
   const id = parseDeezerId(val('#edDeezer').trim());
   if (!id) {
-    toast('Colle un lien de piste Deezer (.../track/123...)');
+    toast('Collez un lien de piste Deezer (.../track/123...)');
     return;
   }
   toast('Récupération...');
@@ -373,7 +373,7 @@ function renderStruct(): void {
   const panel = $('#structPanel');
   if (!panel) return;
   if (!edit.sections || !edit.sections.length) {
-    panel.innerHTML = `<div class="hint-small">Sépare les sections par une ligne vide, puis « Détecter ». Tu pourras corriger refrain / couplet avant d'enregistrer.</div>`;
+    panel.innerHTML = `<div class="hint-small">Séparez les sections par une ligne vide, puis « Détecter ». Vous pourrez corriger refrain / couplet avant d'enregistrer.</div>`;
     return;
   }
   panel.innerHTML = edit.sections

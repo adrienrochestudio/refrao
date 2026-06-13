@@ -614,6 +614,7 @@ h1 .em{color:var(--blue);font-style:normal}
 .lh-xp .lx-pts{font-family:var(--font-mono);font-size:.64rem;color:var(--text-mute)}
 .lh-xp .lx-bar{height:5px;margin-top:6px;border-radius:99px;background:var(--surface-3);overflow:hidden}
 .lh-xp .lx-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--blue),var(--purple));transition:width .9s var(--ease)}
+.lh-xp.wide{min-width:0;width:100%;margin:14px 0 4px}
 .xp-reward{max-width:340px;margin:18px auto 4px}
 .xpr-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}
 .xpr-lvl{font-weight:700;font-size:.95rem;color:var(--text)}
