@@ -1,14 +1,13 @@
 name: Deploy (Astro vers Pages)
 
-# Bascule MANUELLE du site vers le build Astro. Tant que la source GitHub Pages
-# reste "Deploy from a branch", ce workflow ne s'exécute pas tout seul et ne
-# change RIEN au site vanilla en ligne (servi depuis la racine).
-#
-# Procédure de cutover (délibérée) :
-#   1. Repo > Settings > Pages > Source = "GitHub Actions".
-#   2. Lancer ce workflow (onglet Actions > Deploy > Run workflow).
-#   3. Vérifier le site, puis retirer les fichiers vanilla de la racine si tout est bon.
+# Déploiement du site (build Astro app/dist) vers GitHub Pages.
+# La bascule a eu lieu le 2026-06-12 : source Pages = "GitHub Actions".
+# Déploiement CONTINU : tout merge sur main publie le site. Aussi déclenchable
+# manuellement. Rollback possible en repassant Pages source sur la branche/racine
+# (les fichiers vanilla sont conservés à la racine comme filet de secours).
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:

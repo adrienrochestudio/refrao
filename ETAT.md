@@ -113,7 +113,9 @@ Pose le claim `role:manager` + la licence (claims `plan`/`validUntil` + doc `lic
   - `style.css` réutilisé tel quel (copie dans `app/public/`). Refonte CSS/UX = étape ultérieure.
   - **Reporté** : test de niveau (`leveltest`, stub) ; placement par auto-sélection en attendant.
   - Vérifié logged-out (rendu, interactivité, gardes) ; le flux **connecté** n'est pas testable en local (App Check bloque localhost sans jeton de débogage enregistré) — il fonctionnera en prod (même clé, même domaine que le vanilla).
-- **Bascule GitHub Pages** (PAS encore faite, étape délibérée) : workflow `.github/workflows/deploy.yml` prêt (déclenchement **manuel** `workflow_dispatch`). Procédure : (1) Settings > Pages > Source = « GitHub Actions » ; (2) lancer le workflow Deploy ; (3) vérifier le site connecté en prod ; (4) si OK, retirer les fichiers vanilla de la racine. Tant que ce n'est pas fait, le site en ligne reste le vanilla et fusionner sur `main` ne change RIEN pour les utilisateurs.
+- **BASCULE FAITE le 2026-06-12** : le site en ligne (https://adrienrochestudio.github.io/refrao/) est désormais le **build Astro**. Source Pages = « GitHub Actions ». `.github/workflows/deploy.yml` déploie en **continu** (tout merge sur `main` publie ; aussi `workflow_dispatch`). Vérifié : accueil + `/auth/`, `/apprendre/`, `/progression/`, `/gestion/` en 200 ; ancien `*.html` vanilla en 404.
+- **Filet de secours / cleanup restant** : les fichiers vanilla (racine : `index.html`, `*.html`, `core.js`, `srs.js`, `exercises.js`, `learn.js`, `leveltest.js`, `style.css`) ne sont plus servis mais **conservés** comme rollback (repasser Pages source sur la branche les réactiverait). À supprimer une fois le flux connecté confirmé en prod sur la durée.
+- **Reste après bascule** : confirmer un parcours connecté réel en prod (gestionnaire démo + apprenant) ; refonte CSS/UX ; nettoyage de la dette transitoire (pont `window`, doublon `style.css`) ; calibrer `leveltest`.
 
 ## 12. Comment reprendre dans un nouveau chat
 1. Le chat démarre dans `~/refrao` : `CLAUDE.md` est lu automatiquement (règles permanentes).
