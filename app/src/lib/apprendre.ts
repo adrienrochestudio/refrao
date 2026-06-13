@@ -120,11 +120,49 @@ function renderLangPick(): void {
   });
 }
 
+function flameIcon(): string {
+  return '<svg class="flame" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C9 6 6.5 8 6.5 12.5A5.5 5.5 0 0 0 17.5 13c0-2.6-1.5-4.2-2.6-5.7-.9 1-1.9 1.4-2.9.5.9-2 .6-4 0-5.8z"/></svg>';
+}
+
+// Détermine la prochaine activité à proposer en haut de l'accueil (guidage).
+function nextActivity(): { song: Song; label: string; sub: string } | null {
+  const songs = songsForLang();
+  if (!songs.length) return null;
+  const inProg = songs.find(s => {
+    const p = S.prog.songs?.[s.id];
+    return !!p?.discovered && !p?.completed;
+  });
+  if (inProg) return { song: inProg, label: 'Continuer', sub: 'Reprends ton entraînement là où tu t’es arrêté' };
+  const anyProgress = songs.some(s => S.prog.songs?.[s.id]?.discovered);
+  const fresh = songs.find(s => !S.prog.songs?.[s.id]?.completed) ?? songs[0]!;
+  return {
+    song: fresh,
+    label: anyProgress ? 'Nouvelle chanson' : 'Commencer',
+    sub: anyProgress ? 'Découvre une nouvelle chanson' : 'Bienvenue. Commence par écouter une chanson.'
+  };
+}
+
 function renderChooser(): void {
   const listEl = $id('learnList');
   if (!listEl) return;
   const dueCount = SRS.due().length;
   const st = SRS.stats();
+
+  const hr = new Date().getHours();
+  const part = hr < 12 ? 'Bonjour' : hr < 18 ? 'Bon après-midi' : 'Bonsoir';
+  const nm = S.profile?.firstName ? ', ' + esc(S.profile.firstName) : '';
+  const streak = S.profile?.streak?.count || 0;
+  const home = `<div class="learn-home">
+      <div class="lh-hi"><h3>${part}${nm}</h3><div class="lh-sub">${dueCount ? `${dueCount} carte${dueCount > 1 ? 's' : ''} à revoir aujourd’hui.` : 'Prêt pour une nouvelle leçon ?'}</div></div>
+      <div class="lh-streak ${streak ? '' : 'cold'}">${flameIcon()}<b>${streak}</b><span>j. de suite</span></div>
+    </div>`;
+  const na = nextActivity();
+  const cont = na
+    ? `<div class="continue-card" onclick="openSong('${na.song.id}')">
+      <div class="cc-l"><div class="cc-tag">${na.label}</div><div class="cc-ttl">${esc(na.song.title)}</div><div class="cc-sub">${na.sub}</div></div>
+      <div class="cc-play">${playIcon()}</div>
+    </div>`
+    : '';
   const review = `
     <div class="review-card">
       <div class="rc-left">
@@ -166,7 +204,7 @@ function renderChooser(): void {
       `</div>`;
   }
   listEl.className = '';
-  listEl.innerHTML = review + grid;
+  listEl.innerHTML = home + cont + review + grid;
 }
 
 /* ---------- parcours d'une chanson ---------- */
