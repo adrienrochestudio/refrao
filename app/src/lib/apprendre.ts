@@ -126,6 +126,16 @@ function flameIcon(): string {
   return '<svg class="flame" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C9 6 6.5 8 6.5 12.5A5.5 5.5 0 0 0 17.5 13c0-2.6-1.5-4.2-2.6-5.7-.9 1-1.9 1.4-2.9.5.9-2 .6-4 0-5.8z"/></svg>';
 }
 
+// Bandeau niveau/XP réutilisable : pour que l'XP soit OMNIPRÉSENT et clair sur
+// tous les écrans apprenant (accueil, parcours d'une chanson, etc.).
+function xpStrip(wide = false): string {
+  const li = levelInfo(S.prog.xp || 0);
+  return `<div class="lh-xp${wide ? ' wide' : ''}" title="${S.prog.xp || 0} XP au total">
+      <div class="lx-top"><span class="lx-lvl">Niveau ${li.lvl}</span><span class="lx-pts">${li.into} / ${li.need} XP</span></div>
+      <div class="lx-bar"><i style="width:${li.pct}%"></i></div>
+    </div>`;
+}
+
 // Détermine la prochaine activité à proposer en haut de l'accueil (guidage).
 function nextActivity(): { song: Song; label: string; sub: string } | null {
   const songs = songsForLang();
@@ -316,6 +326,7 @@ function openSong(id: string): void {
         <div class="cefr-badge b${songBand(s)} big">${esc(s.cefr || 'A2')}</div>
       </div>
     </div>
+    ${xpStrip(true)}
     ${banner}
     <div class="parcours">${steps}</div>`;
   showView('song');
@@ -399,10 +410,12 @@ function playDiscoSection(): void {
   const start = Math.min(...valid);
   const end = Math.max(...valid) + 3.5;
   cancelAnimationFrame(exAudio.raf);
+  const cap = $id('discPlay')?.parentElement?.querySelector('.audio-cap') as HTMLElement | null;
   try {
     exAudio.player.seekTo(start + offset, true);
     exAudio.player.playVideo();
     $id('discPlay')?.classList.add('playing');
+    if (cap) cap.textContent = 'Le son joue…';
   } catch {
     return;
   }
@@ -417,6 +430,7 @@ function playDiscoSection(): void {
       }
       lineEls.forEach(el => el.classList.remove('kara-active'));
       $id('discPlay')?.classList.remove('playing');
+      if (cap) cap.textContent = 'Touche pour réécouter';
       return;
     }
     let idx = -1;
@@ -685,10 +699,15 @@ function wireCloze(q: any): void {
   if (lb) {
     const offset = (S.sess.song as Song).offset || 0;
     const dur = q.tEnd != null ? q.tEnd - q.t : 4;
+    const cap = lb.parentElement?.querySelector('.audio-cap') as HTMLElement | null;
     const play = (): void => {
       lb.classList.add('playing');
+      if (cap) cap.textContent = 'Le son joue…';
       playLine(q.t, q.tEnd, offset);
-      window.setTimeout(() => lb.classList.remove('playing'), Math.max(800, dur * 1000 + 300));
+      window.setTimeout(() => {
+        lb.classList.remove('playing');
+        if (cap) cap.textContent = 'Touche pour réécouter';
+      }, Math.max(800, dur * 1000 + 300));
     };
     lb.onclick = play;
     // Lecture automatique : l'apprenant est « dans le truc ». Si l'autoplay est
