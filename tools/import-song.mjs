@@ -16,21 +16,30 @@
    Coût : l'enrichissement est fait UNE fois par chanson et stocké ;
    les apprenants ne déclenchent aucun calcul. Quelques centimes/chanson.
 
-   Prérequis :
+   DEUX FAÇONS D'ENRICHIR (au choix) :
+
+   A. Sans clé API, via Claude Code (recommandé pour construire la banque) :
+        node tools/import-song.mjs --prep --deezer <url> --lang pt
+        # -> écrit tools/song-prep.json (paroles numérotées, à enrichir).
+        # Claude Code (la session de chat) remplit le champ "enriched".
+        node tools/import-song.mjs --commit [--dry]
+        # -> assemble depuis tools/song-prep.json et écrit dans Firestore.
+
+   B. Avec une clé API (automatique, pour des lots/Phase 3) :
+        export ANTHROPIC_API_KEY=sk-ant-...   (vraie clé, org avec crédit)
+        node tools/import-song.mjs --deezer <url> --lang pt [--dry]
+
+   Prérequis communs :
      - tools/serviceAccount.json (déjà ignoré par git) - cf. set-manager.mjs
      - npm install firebase-admin @anthropic-ai/sdk   (depuis ~/refrao)
-     - export ANTHROPIC_API_KEY=sk-ant-...   (sinon : import sans
-       enrichissement - paroles synchro seules, utile pour tester)
 
-   Utilisation :
-     node tools/import-song.mjs --deezer https://www.deezer.com/track/3135556
-     node tools/import-song.mjs --title "Ai Se Eu Te Pego" --artist "Michel Teló" --lang pt
-     # options : --lang pt (langue d'origine), --band 1|2|3 (forçage),
-     #           --dry (n'écrit pas dans Firestore, affiche le doc),
-     #           --id mon-id (sinon dérivé de l'artiste-titre)
+   Options : --lang pt (langue d'origine), --band 1|2|3 (forçage),
+             --dry (n'écrit pas dans Firestore, affiche le doc),
+             --id mon-id (sinon dérivé de l'artiste-titre),
+             --prep-file <chemin> (défaut tools/song-prep.json).
    ============================================================ */
 
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
@@ -50,9 +59,12 @@ const lang = arg('lang', 'pt');
 const forcedBand = arg('band') ? parseInt(arg('band'), 10) : null;
 const dry = !!arg('dry');
 const forcedId = arg('id');
+const prepMode = !!arg('prep');
+const commitMode = !!arg('commit');
+const prepFile = new URL('./' + (arg('prep-file') || 'song-prep.json'), import.meta.url);
 
-if (!deezerUrl && !(argTitle && argArtist)) {
-  console.error('Usage: node tools/import-song.mjs --deezer <url>  |  --title "<t>" --artist "<a>" [--lang pt] [--band 1|2|3] [--dry] [--id <id>]');
+if (!commitMode && !deezerUrl && !(argTitle && argArtist)) {
+  console.error('Usage:\n  Sans clé : node tools/import-song.mjs --prep --deezer <url> --lang pt   (puis Claude Code enrichit, puis --commit)\n  Avec clé : node tools/import-song.mjs --deezer <url> --lang pt   (ANTHROPIC_API_KEY requise)\n  Options : --title "<t>" --artist "<a>" | --band 1|2|3 | --dry | --id <id> | --prep-file <chemin>');
   process.exit(1);
 }
 
@@ -296,45 +308,98 @@ async function initDb() {
   return getFirestore();
 }
 
+/* ---------- mode --commit : assemble depuis le fichier de prep enrichi ---------- */
+async function runCommit() {
+  let payload;
+  try {
+    payload = JSON.parse(await readFile(prepFile, 'utf8'));
+  } catch {
+    throw new Error(`Fichier de prep introuvable (${prepFile.pathname}). Lance d'abord --prep.`);
+  }
+  if (!payload.enriched) {
+    throw new Error("Le fichier de prep n'est pas encore enrichi (champ \"enriched\" vide). Claude Code doit le remplir avant --commit.");
+  }
+  const lyrics = { lines: payload.lines, synced: payload.synced };
+  const id = forcedId || payload.id;
+  const song = assembleSong({ id, track: payload.track, lyrics, enriched: payload.enriched, srcLang: payload.lang });
+
+  if (dry) {
+    console.log('\n--- DRY RUN (non écrit) ---\n');
+    console.log(JSON.stringify(song, null, 2));
+    return;
+  }
+  const db = await initDb();
+  await db.collection('songs').doc(id).set(song);
+  console.log(`✓ Écrit dans Firestore : songs/${id}`);
+}
+
+/* ---------- récupération commune (Deezer + paroles) ---------- */
+async function fetchTrackAndLyrics() {
+  let trackId = parseDeezerId(deezerUrl);
+  if (!trackId && argTitle && argArtist) {
+    console.log(`Recherche Deezer : ${argTitle} — ${argArtist} ...`);
+    trackId = await fetchDeezerByQuery(argTitle, argArtist);
+  }
+  if (!trackId) throw new Error('Piste Deezer introuvable (vérifie le lien ou title/artist).');
+
+  const track = await fetchDeezerTrack(trackId);
+  console.log(`✓ Deezer : « ${track.title} » — ${track.artist} (${track.durationSec}s, id ${track.deezerId})`);
+
+  const lyrics = await fetchLyrics(track);
+  if (!lyrics.lines.length) throw new Error('Aucune parole trouvée sur LRCLIB.');
+  console.log(`✓ Paroles : ${lyrics.lines.length} lignes, ${lyrics.synced ? 'SYNCHRONISÉES (karaoké)' : 'non synchronisées'}.`);
+  return { track, lyrics };
+}
+
+/* ---------- mode --prep : écrit le fichier à enrichir par Claude Code ---------- */
+async function runPrep() {
+  const { track, lyrics } = await fetchTrackAndLyrics();
+  const id = forcedId || `${slug(track.artist)}-${slug(track.title)}`;
+  const payload = {
+    id,
+    lang,
+    synced: !!lyrics.synced,
+    track,
+    lines: lyrics.lines, // [{ t?, text }] — l'index dans ce tableau = "i" attendu dans enriched
+    enriched: null, // <- Claude Code remplit ce champ selon ENRICH_SCHEMA (sections[{type,lines[{i,fr,words[{w,lemma,gloss}]}]}], cefr, band, genre, pairs)
+    _todo: 'Claude Code : enrichis le champ "enriched" puis lance `node tools/import-song.mjs --commit`.'
+  };
+  await writeFile(prepFile, JSON.stringify(payload, null, 2));
+  console.log(`✓ Prep écrit : ${prepFile.pathname}`);
+  console.log(`  ${lyrics.lines.length} lignes à enrichir. Claude Code remplit "enriched", puis : node tools/import-song.mjs --commit --dry`);
+}
+
+/* ---------- mode par défaut : enrichissement par clé API ---------- */
+async function runWithKey() {
+  const { track, lyrics } = await fetchTrackAndLyrics();
+  let enriched = null;
+  if (process.env.ANTHROPIC_API_KEY) {
+    console.log('… Enrichissement LLM (traduction + sens au mot + structure)…');
+    enriched = await enrich(track, lyrics.lines, lang);
+    const nWords = enriched.sections.reduce((n, s) => n + s.lines.reduce((m, l) => m + (l.words?.length || 0), 0), 0);
+    console.log(`✓ Enrichi : ${enriched.sections.length} sections, ${enriched.pairs.length} entrées de vocab, ${nWords} mots glosés, niveau ${enriched.cefr}.`);
+  } else {
+    console.log('⚠ Ni --prep ni ANTHROPIC_API_KEY : import des paroles synchronisées sans enrichissement (fr vide). Pour enrichir sans clé, utilise --prep.');
+  }
+  const id = forcedId || `${slug(track.artist)}-${slug(track.title)}`;
+  const song = assembleSong({ id, track, lyrics, enriched, srcLang: lang });
+
+  if (dry) {
+    console.log('\n--- DRY RUN (non écrit) ---\n');
+    console.log(JSON.stringify(song, null, 2));
+    return;
+  }
+  const db = await initDb();
+  await db.collection('songs').doc(id).set(song);
+  console.log(`✓ Écrit dans Firestore : songs/${id}`);
+}
+
 /* ---------- main ---------- */
 (async () => {
   try {
-    let trackId = parseDeezerId(deezerUrl);
-    if (!trackId && argTitle && argArtist) {
-      console.log(`Recherche Deezer : ${argTitle} — ${argArtist} ...`);
-      trackId = await fetchDeezerByQuery(argTitle, argArtist);
-    }
-    if (!trackId) throw new Error('Piste Deezer introuvable (vérifie le lien ou title/artist).');
-
-    const track = await fetchDeezerTrack(trackId);
-    console.log(`✓ Deezer : « ${track.title} » — ${track.artist} (${track.durationSec}s, id ${track.deezerId})`);
-
-    const lyrics = await fetchLyrics(track);
-    if (!lyrics.lines.length) throw new Error('Aucune parole trouvée sur LRCLIB.');
-    console.log(`✓ Paroles : ${lyrics.lines.length} lignes, ${lyrics.synced ? 'SYNCHRONISÉES (karaoké)' : 'non synchronisées'}.`);
-
-    let enriched = null;
-    if (process.env.ANTHROPIC_API_KEY) {
-      console.log('… Enrichissement LLM (traduction + sens au mot + structure)…');
-      enriched = await enrich(track, lyrics.lines, lang);
-      const nWords = enriched.sections.reduce((n, s) => n + s.lines.reduce((m, l) => m + (l.words?.length || 0), 0), 0);
-      console.log(`✓ Enrichi : ${enriched.sections.length} sections, ${enriched.pairs.length} entrées de vocab, ${nWords} mots glosés, niveau ${enriched.cefr}.`);
-    } else {
-      console.log('⚠ ANTHROPIC_API_KEY absente : import des paroles synchronisées sans enrichissement (fr vide).');
-    }
-
-    const id = forcedId || `${slug(track.artist)}-${slug(track.title)}`;
-    const song = assembleSong({ id, track, lyrics, enriched, srcLang: lang });
-
-    if (dry) {
-      console.log('\n--- DRY RUN (non écrit) ---\n');
-      console.log(JSON.stringify(song, null, 2));
-      return;
-    }
-
-    const db = await initDb();
-    await db.collection('songs').doc(id).set(song);
-    console.log(`\n✓ Écrit dans Firestore : songs/${id}`);
+    if (commitMode) await runCommit();
+    else if (prepMode) await runPrep();
+    else await runWithKey();
   } catch (e) {
     console.error('✗ ' + (e?.message || e));
     process.exit(1);
