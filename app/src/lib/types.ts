@@ -81,3 +81,19 @@ export interface Cohort {
   category?: string;
   createdAt?: number;
 }
+
+export interface Learner extends Profile {
+  uid: string;
+}
+
+export interface License {
+  managerUid?: string;
+  plan?: string;
+  status?: string;
+  seats?: number;
+  validUntil?: number;
+  school?: string;
+  contactEmail?: string;
+  createdAt?: number;
+  updatedAt?: number;
+}
