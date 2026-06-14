@@ -8,7 +8,8 @@
 
 ## 0. Où on en est (TL;DR)
 Le produit est **en ligne et fonctionnel** (build Astro + TypeScript sur GitHub Pages, Firebase Spark gratuit). Le backend B2B sécurisé et la migration framework sont **faits**. Le gros du travail récent : une **fabrique de chansons** (import enrichi karaoké + traduction au mot, par Claude Code, sans coût), et une **refonte du parcours apprenant** (gamification addictive style Duolingo : XP/niveaux/badges/streaks/objectif du jour/combos, exercices d'écoute, blocage multi-jours par répétition espacée). Catalogue : 6 chansons portugaises en place.
-**Prochaines étapes (dans d'autres chats)** : encore des passes de review du processus d'AJOUT (gestion/import) et d'APPRENTISSAGE, puis une passe OPTIMISATION / SÉCURITÉ / FIABILITÉ / DÉPLOIEMENT / SCALING.
+Une **passe design** (d'après l'audit des meilleurs sites : Apple/Brilliant/Duolingo/Spotify/Stripe) a posé un système : tokens d'espacement 8px + échelle typo, sémantique chromatique resserrée à 1 accent (bleu=action, vert=correct, rouge=faux, OR=récompense), accessibilité (reduced-motion, focus visible, contraste AA), composants (bouton physique, cibles 44px, cartes teintées par la pochette). Lots 1 à 3 **en ligne** ; Lot 4 (lecteur audio persistant) en revue.
+**Prochaines étapes (dans d'autres chats)** : valider/merger le Lot 4 (PR lecteur persistant, à contrôler en prod) ; encore des passes de review du processus d'AJOUT (gestion/import) et d'APPRENTISSAGE, puis une passe OPTIMISATION / SÉCURITÉ / FIABILITÉ / DÉPLOIEMENT / SCALING.
 
 ---
 
@@ -124,9 +125,11 @@ Le gestionnaire doit se reconnecter pour activer ses claims.
 - Migration Astro + TypeScript COMPLÈTE (5 pages portées, bascule du live faite, ancien vanilla supprimé).
 - Fabrique de chansons (import enrichi karaoké + sens au mot) ; 6 chansons en ligne ; taxonomie de styles + filtre par style.
 - Refonte du parcours apprenant : gamification complète (XP/niveaux/badges/streaks/objectif du jour/dopamine/combos), exercices d'écoute, découverte pas à pas, accueil linéaire, blocage multi-jours, accueil 2 boutons, vouvoiement Gestion, tirets retirés.
+- **Passe design (audit) · Lots 1 à 3 en ligne** : (1) fondations = tokens d'espacement 8px + échelle typo (`--space-*`, `--text-*`, `--tracking-tight`, `--leading-body`) ; (2) couleur 1 accent (bleu=action, vert=correct, rouge=faux, **or `--reward`**=récompense ; violet réservé aux repères de NIVEAU) + accessibilité (`prefers-reduced-motion`, `:focus-visible`, `--text-mute` remonté pour passer AA) ; (3) composants = bouton primaire « physique » pressable, cibles ≥ 44px, carte chanson teintée par la couleur dominante de la pochette (extraction canvas runtime + repli déterministe, 0 champ Firestore). Tout dans `app/public/style.css` (+ helper de teinte dans `apprendre.ts`).
 
 ## 14. Ce qui RESTE (par priorité)
-- **Passes de review (prochaines, autres chats)** : continuer à simplifier/linéariser le **processus d'apprentissage** (moins de texte, plus direct, s'inspirer des meilleures apps) et revoir le **processus d'AJOUT** (gestion/import : le rendre fluide). Garder la boussole §3.
+- **Lot 4 design · lecteur audio persistant (PR ouverte, à valider en prod avant merge)** : mini-barre fixe qui joue le morceau entier sur accueil/parcours, en pause + masquée pendant les exercices (focus total). Player YouTube dédié `miniAudio` (séparé du lecteur de segments `exAudio`), branché sur `showView()`. NON testable en local (App Check) : Adrien contrôle lecture/pause, switch de morceau, pause à l'entrée d'un exercice, puis merge.
+- **Passes de review (prochaines, autres chats)** : continuer à simplifier/linéariser le **processus d'apprentissage** (moins de texte, plus direct, s'inspirer des meilleures apps) et revoir le **processus d'AJOUT** (gestion/import : le rendre fluide). Garder la boussole §3. Le système de design (tokens §13) est désormais la base : piocher dans `--space-*`/`--text-*`, tenir 1 sens = 1 couleur.
 - **Puis passe OPTIMISATION / SÉCURITÉ / FIABILITÉ / DÉPLOIEMENT / ANTICIPATION SCALING** (autre chat) avant d'élargir.
 - **Bloquants de COMMERCIALISATION (Phase 3, hors code)** : RGPD (données d'élèves possiblement mineurs), droits sur les paroles (œuvres protégées). Puis Stripe (exige un backend payant), domaine perso, self-service manager (clé API ou Cloud Function).
 - **Divers** : tirets cadratins encore présents dans certains labels Gestion à finir de nettoyer ; calibrer le test de niveau (`leveltest`, stub) ; `README.md` décrit encore le vanilla.
