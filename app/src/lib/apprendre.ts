@@ -126,6 +126,20 @@ function flameIcon(): string {
   return '<svg class="flame" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C9 6 6.5 8 6.5 12.5A5.5 5.5 0 0 0 17.5 13c0-2.6-1.5-4.2-2.6-5.7-.9 1-1.9 1.4-2.9.5.9-2 .6-4 0-5.8z"/></svg>';
 }
 
+function clockIcon(): string {
+  return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+}
+// Échéance lisible pour le « repos » (répétition espacée).
+function restLabel(dueAt: number): string {
+  const ms = dueAt - Date.now();
+  if (ms <= 0) return 'maintenant';
+  const h = ms / 3600e3;
+  if (h < 1) return 'dans ' + Math.max(1, Math.round(ms / 60000)) + ' min';
+  if (h < 20) return 'dans ' + Math.round(h) + ' h';
+  const d = Math.round(h / 24);
+  return d <= 1 ? 'demain' : 'dans ' + d + ' jours';
+}
+
 // Bandeau niveau/XP réutilisable : pour que l'XP soit OMNIPRÉSENT et clair sur
 // tous les écrans apprenant (accueil, parcours d'une chanson, etc.).
 function xpStrip(wide = false): string {
@@ -186,7 +200,7 @@ function renderChooser(): void {
     <div class="review-card">
       <div class="rc-left">
         <div class="rc-tag"><span class="live-dot"></span>Révision du jour</div>
-        <div class="rc-sub">${dueCount ? dueCount + ' carte' + (dueCount > 1 ? 's' : '') + ' à revoir — on commence par tes points faibles.' : "Rien d'urgent. Reviens après une nouvelle leçon."}</div>
+        <div class="rc-sub">${dueCount ? dueCount + ' carte' + (dueCount > 1 ? 's' : '') + ' à revoir.' : 'Rien à revoir pour le moment.'}</div>
         <div class="rc-stats"><span><b>${st.mastered}</b> maîtrisées</span><span><b>${st.learning}</b> en cours</span>${S.profile && S.profile.streak ? `<span><b>${S.profile.streak.count || 0}</b> j. de suite</span>` : ''}</div>
       </div>
       <button class="btn ${dueCount ? 'btn-primary' : 'btn-ghost'}" ${dueCount ? '' : 'disabled'} onclick="startReview()">Réviser</button>
@@ -270,9 +284,11 @@ function openSong(id: string): void {
     void saveProgress(S.uid, S.prog);
   }
 
+  const bubble = (state: string): string =>
+    state === 'done' ? miniCheck() : state === 'locked' ? lockIcon() : state === 'resting' ? clockIcon() : playIcon();
   const step = (state: string, tag: string, name: string, desc: string, action: string | null): string => `
-    <div class="pstep ${state}" ${state !== 'locked' && action ? `onclick="${action}"` : ''}>
-      <div class="pbubble">${state === 'done' ? miniCheck() : state === 'locked' ? lockIcon() : playIcon()}</div>
+    <div class="pstep ${state}" ${state === 'current' && action ? `onclick="${action}"` : ''}>
+      <div class="pbubble">${bubble(state)}</div>
       <div class="pinfo"><div class="ptag">${tag}</div><div class="pname">${name}</div><div class="pdesc">${desc}</div></div>
     </div>`;
 
@@ -281,35 +297,47 @@ function openSong(id: string): void {
     ps.discovered ? 'done' : 'current',
     'Étape 1',
     'Découverte',
-    band === 1 ? 'Écoute, paroles + traduction' : band === 2 ? 'Écoute, traduction à la demande' : 'Écoute, sens mot à mot',
+    band === 1 ? 'Écoute en lisant la traduction' : band === 2 ? 'Écoute, traduction à la demande' : 'Écoute, sens des mots',
     `startDiscovery('${id}')`
   );
-  const refState = !ps.discovered ? 'locked' : refMastered ? 'done' : 'current';
+  const refReady = !ref || SRS.sectionReady(s, ref);
+  const refState = !ps.discovered ? 'locked' : refMastered ? 'done' : refReady ? 'current' : 'resting';
   steps += step(
     refState,
     'Étape 2',
-    'Refrain — entraînement',
-    refMastered ? 'Maîtrisé' : `Cloze adaptatif · ${ref ? SRS.sectionPct(s, ref) : 0}% de maîtrise`,
-    ps.discovered ? `startTraining('${id}',${refIdx})` : null
+    'Refrain',
+    refMastered
+      ? 'Maîtrisé'
+      : refState === 'resting'
+        ? `En repos, reviens ${restLabel(ref ? SRS.sectionDueAt(s, ref) : Date.now())}`
+        : `Entraîne-toi (${ref ? SRS.sectionPct(s, ref) : 0}% maîtrisé)`,
+    refState === 'current' ? `startTraining('${id}',${refIdx})` : null
   );
   const shState = !refMastered ? 'locked' : ps.shadow ? 'done' : 'current';
   steps += step(
     shState,
     'Étape 3',
-    'Refrain — shadowing',
+    'Refrain à voix haute',
     band === 3 ? 'Requis pour la maîtrise complète' : 'Répète le refrain à voix haute (facultatif)',
-    refMastered ? `declareShadow('${id}')` : null
+    refMastered && !ps.shadow ? `declareShadow('${id}')` : null
   );
   verses.forEach((v, k) => {
     const unlocked = verseUnlocked(k);
     const m = SRS.sectionMastered(s, v.sec);
-    const stt = !unlocked ? 'locked' : m ? 'done' : 'current';
+    const ready = SRS.sectionReady(s, v.sec);
+    const stt = !unlocked ? 'locked' : m ? 'done' : ready ? 'current' : 'resting';
     steps += step(
       stt,
       'Couplet ' + (k + 1),
-      'Couplet ' + (k + 1) + ' — entraînement',
-      m ? 'Maîtrisé' : unlocked ? `Cloze · ${SRS.sectionPct(s, v.sec)}%` : "Maîtrise le refrain d'abord",
-      unlocked ? `startTraining('${id}',${v.i})` : null
+      'Couplet ' + (k + 1),
+      m
+        ? 'Maîtrisé'
+        : !unlocked
+          ? 'Maîtrise le refrain d’abord'
+          : stt === 'resting'
+            ? `En repos, reviens ${restLabel(SRS.sectionDueAt(s, v.sec))}`
+            : `Entraîne-toi (${SRS.sectionPct(s, v.sec)}% maîtrisé)`,
+      stt === 'current' ? `startTraining('${id}',${v.i})` : null
     );
   });
 
@@ -337,7 +365,7 @@ async function declareShadow(id: string): Promise<void> {
   S.prog.songs[id] = S.prog.songs[id] ?? {};
   S.prog.songs[id]!.shadow = true;
   await saveProgress(S.uid, S.prog);
-  toast('Shadowing noté — bravo');
+  toast('Bravo, shadowing noté');
   openSong(id);
 }
 
@@ -519,7 +547,7 @@ function wireLyrics(band: number): void {
       el.onclick = (e) => {
         e.stopPropagation(); // ne pas déclencher le seek karaoké de la ligne
         const tr = el.dataset.gloss || wordSense(el.dataset.w || '');
-        toast(tr ? (el.dataset.w || '') + ' — ' + tr : 'sens non renseigné');
+        toast(tr ? (el.dataset.w || '') + ' : ' + tr : 'sens non renseigné');
       };
     });
 }
@@ -556,6 +584,12 @@ function startTraining(songId: string, si: number): void {
   if (!s) return;
   const sec = sections(s)[si];
   if (!sec) return;
+  // Blocage multi-jours : une partie déjà travaillée se repose jusqu'à son échéance.
+  if (!SRS.sectionReady(s, sec)) {
+    toast('Cette partie se repose. Reviens ' + restLabel(SRS.sectionDueAt(s, sec)) + '.');
+    openSong(songId);
+    return;
+  }
   SRS.generateForSection(s, sec);
   const band = S.band;
   const adj = S.prog.songs?.[songId]?.clozeLevel ?? 0;
@@ -686,7 +720,7 @@ function renderClozeQ(): void {
       <div class="cloze">${lineHtml}</div>
       <div class="ex-prompt fr-help">${esc(q.fr)}</div>
       ${answerArea}
-      ${foot(q.mode === 'type')}
+      ${foot()}
     </div>`;
   requestAnimationFrame(() => {
     const b = $id('exWrap')?.querySelector('.bar i') as HTMLElement | null;
@@ -811,14 +845,12 @@ async function finishTraining(): Promise<void> {
     <div class="finish">
       <div class="badge">${mastered ? checkBig() : repeatBig()}</div>
       <h2>${mastered ? (ss.sec.type === 'refrain' ? 'Refrain maîtrisé' : 'Couplet maîtrisé') : 'Bien joué'}</h2>
-      <p>${mastered ? 'Tu peux passer à la suite.' : 'Reviens pour consolider — la mémoire se construit par la répétition espacée.'}</p>
+      <p>${mastered ? 'Tu peux passer à la suite.' : 'Cette partie se repose. Reviens ' + restLabel(SRS.sectionDueAt(s, ss.sec)) + ' pour la consolider.'}</p>
       <div class="reward"><div class="r"><div class="n">${rate}%</div><div class="l">réussite</div></div><div class="r"><div class="n">${pct}%</div><div class="l">maîtrise</div></div></div>
       ${xpReward(liAfter, leveledUp)}
       <div class="finish-acts">
-        ${mastered ? '' : `<button class="btn btn-ghost" onclick="startTraining('${s.id}',${ss.si})">Encore une passe</button>`}
         <button class="btn btn-primary" onclick="openSong('${s.id}')">Continuer</button>
       </div>
-      <p class="adj-note">${rate < 80 ? 'On allègera un peu la prochaine fois.' : rate > 90 ? 'On corsera un peu la prochaine fois.' : 'Bon rythme : autour de 80–90 %.'}</p>
     </div>`;
   animateXp(gain, liAfter.pct);
 }
@@ -892,7 +924,7 @@ function renderReviewQ(): void {
       <div class="ex-q">${q.kind === 'build' ? 'Reconstruis le vers' : 'Écris le mot'}</div>
       <div class="ex-prompt fr-help">${esc(q.fr || '—')}</div>
       ${area}
-      ${foot(q.kind === 'type')}
+      ${foot()}
     </div>`;
   requestAnimationFrame(() => {
     const b = $id('exWrap')?.querySelector('.bar i') as HTMLElement | null;
@@ -996,8 +1028,8 @@ async function finishReview(): Promise<void> {
 }
 
 /* ---------- briques partagées ---------- */
-function foot(withHint: boolean): string {
-  return `<div class="ex-foot"><div class="feedback" id="fb"></div><div class="foot-actions">${withHint ? `<button class="btn btn-ghost btn-sm" id="hintBtn">Indice</button>` : ''}<button class="btn btn-primary" id="checkBtn" disabled>Valider</button></div></div>`;
+function foot(): string {
+  return `<div class="ex-foot"><div class="feedback" id="fb"></div><div class="foot-actions"><button class="btn btn-primary" id="checkBtn" disabled>Valider</button></div></div>`;
 }
 function renderHint(ans: string): void {
   const line = $id('hintLine');
@@ -1029,23 +1061,25 @@ function settle(correct: boolean, msg?: string | null): void {
 }
 // Dopamine : +XP qui jaillit à chaque bonne réponse.
 function floatGain(txt: string): void {
-  const card = document.querySelector('.ex-card');
-  if (!card) return;
+  // Rattaché à #exercise (pas à la carte) pour survivre au changement de question
+  // et rester affiché plus longtemps.
+  const host = $id('exercise');
+  if (!host) return;
   const el = document.createElement('div');
   el.className = 'xp-float';
   el.textContent = txt;
-  card.appendChild(el);
-  setTimeout(() => el.remove(), 1100);
+  host.appendChild(el);
+  setTimeout(() => el.remove(), 1900);
 }
 // Dopamine : flash de série quand les bonnes réponses s'enchaînent.
 function comboFlash(n: number): void {
-  const card = document.querySelector('.ex-card');
-  if (!card) return;
+  const host = $id('exercise');
+  if (!host) return;
   const el = document.createElement('div');
   el.className = 'combo-flash';
   el.textContent = n + ' d’affilée !';
-  card.appendChild(el);
-  setTimeout(() => el.remove(), 1000);
+  host.appendChild(el);
+  setTimeout(() => el.remove(), 1600);
 }
 function advance(): void {
   S.sess.idx++;

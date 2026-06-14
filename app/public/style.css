@@ -658,10 +658,14 @@ h1 .em{color:var(--blue);font-style:normal}
 
 /* ---- Machine à dopamine : un tap, +XP qui jaillit, combos ---- */
 .choice{padding:18px 20px;font-size:1.1rem}
-.xp-float{position:absolute;top:42%;left:50%;font-family:var(--font-mono);font-weight:700;font-size:1.5rem;color:var(--green);pointer-events:none;z-index:6;animation:xpfloat 1.1s var(--ease) forwards}
-@keyframes xpfloat{0%{opacity:0;transform:translate(-50%,12px) scale(.7)}25%{opacity:1}100%{opacity:0;transform:translate(-50%,-46px) scale(1.15)}}
-.combo-flash{position:absolute;top:10%;left:50%;font-family:var(--font-display);font-weight:800;font-size:1.25rem;color:var(--purple);pointer-events:none;z-index:6;animation:comboflash 1s var(--ease) forwards}
-@keyframes comboflash{0%{opacity:0;transform:translate(-50%,0) scale(.5)}30%{opacity:1;transform:translate(-50%,0) scale(1.18)}100%{opacity:0;transform:translate(-50%,-12px) scale(1)}}
+#exercise{position:relative}
+.xp-float{position:absolute;top:88px;left:50%;font-family:var(--font-mono);font-weight:700;font-size:1.6rem;color:var(--green);pointer-events:none;z-index:6;animation:xpfloat 1.9s var(--ease) forwards}
+@keyframes xpfloat{0%{opacity:0;transform:translate(-50%,14px) scale(.7)}14%{opacity:1;transform:translate(-50%,0) scale(1.15)}70%{opacity:1;transform:translate(-50%,-22px) scale(1)}100%{opacity:0;transform:translate(-50%,-62px) scale(1)}}
+.combo-flash{position:absolute;top:40px;left:50%;font-family:var(--font-display);font-weight:800;font-size:1.3rem;color:var(--purple);pointer-events:none;z-index:6;animation:comboflash 1.6s var(--ease) forwards}
+@keyframes comboflash{0%{opacity:0;transform:translate(-50%,0) scale(.5)}22%{opacity:1;transform:translate(-50%,0) scale(1.2)}72%{opacity:1;transform:translate(-50%,-6px) scale(1)}100%{opacity:0;transform:translate(-50%,-16px) scale(1)}}
+.pstep.resting{opacity:.72;cursor:default}
+.pstep.resting .pbubble{background:var(--surface-3);border-color:var(--border-2);color:#ffb15c}
+.pstep.resting .pdesc{color:#ffb15c}
 
 /* ---- Découverte pas à pas : une partie par écran ---- */
 .dseg-row{display:flex;gap:6px;flex:1}
