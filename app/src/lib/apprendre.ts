@@ -1,6 +1,6 @@
 // Contrôleur de la page "apprendre" : port TypeScript de exercices.js + learn.js.
 // Les fonctions référencées par des onclick inline (dans des chaînes HTML) sont
-// exposées sur window — pont transitoire conservé tel quel pendant la migration ;
+// exposées sur window · pont transitoire conservé tel quel pendant la migration ;
 // le redesign produit remplacera ce pattern. La logique est fidèle à l'original.
 import {
   guard,
@@ -227,7 +227,7 @@ function renderChooser(): void {
           return `<div class="song-card" onclick="openSong('${s.id}')">
       <div class="cefr-badge b${b}">${esc(s.cefr || ['', 'A2', 'B1', 'C1'][b])}</div>
       <div class="ttl">${esc(s.title)}</div>
-      <div class="art">${esc(s.artist || '—')}</div>
+      <div class="art">${esc(s.artist || '·')}</div>
       ${songMeters(s)}
       ${above ? `<div class="above">un cran au-dessus · i+1</div>` : ''}
       ${ps.completed ? `<div class="done-tag">${ps.full ? 'Maîtrise complète' : 'Complétée'}</div>` : ''}
@@ -379,8 +379,8 @@ function startDiscovery(songId: string): void {
   renderDiscoveryStep();
 }
 
-// Découverte PAS À PAS : une seule partie (refrain/couplet) par écran — peu
-// d'infos d'un coup —, audio qui se lance seul + surlignage, étincelle à chaque
+// Découverte PAS À PAS : une seule partie (refrain/couplet) par écran · peu
+// d'infos d'un coup ·, audio qui se lance seul + surlignage, étincelle à chaque
 // « Suivant ». Plus addictif et plus direct qu'un mur de paroles.
 function renderDiscoveryStep(): void {
   const ss = S.sess;
@@ -514,7 +514,7 @@ function sectionLyrics(sec: Section, band: number): string {
 }
 
 // Rend les mots cliquables. Si la ligne porte des données enrichies (words[]),
-// chaque mot connu reçoit son SENS EN CONTEXTE (data-gloss) — la vraie correction
+// chaque mot connu reçoit son SENS EN CONTEXTE (data-gloss) · la vraie correction
 // de la reconnaissance de mots, qui résout conjugaisons/accords via le lemme.
 const stripPunct = (w: string): string => w.replace(/[.,;:!?¿¡"'“”«»()…]/g, '');
 function wordsHtml(l: Line): string {
@@ -565,7 +565,7 @@ async function markDiscovered(id: string): Promise<void> {
   S.prog.songs[id]!.discovered = true;
   if (fresh) S.prog.xp = (S.prog.xp || 0) + 5;
   await saveProgress(S.uid, S.prog);
-  if (fresh) toast('+5 XP — première écoute');
+  if (fresh) toast('+5 XP · première écoute');
   openSong(id);
 }
 
@@ -922,7 +922,7 @@ function renderReviewQ(): void {
       <div class="ex-top"><button class="close" onclick="showChooser()">${xIcon()}</button><div class="bar"><i style="width:${pct}%"></i></div></div>
       <div class="ex-tag">Révision du jour · ${langLabel(q.song?.lang || S.curlang)}</div>
       <div class="ex-q">${q.kind === 'build' ? 'Reconstruis le vers' : 'Écris le mot'}</div>
-      <div class="ex-prompt fr-help">${esc(q.fr || '—')}</div>
+      <div class="ex-prompt fr-help">${esc(q.fr || '·')}</div>
       ${area}
       ${foot()}
     </div>`;
@@ -1019,7 +1019,7 @@ async function finishReview(): Promise<void> {
     <div class="finish">
       <div class="badge">${checkBig()}</div>
       <h2>Révision terminée</h2>
-      <p>${ss.correct}/${total} — la file s'est mise à jour.</p>
+      <p>${ss.correct}/${total} · la file s'est mise à jour.</p>
       <div class="reward"><div class="r"><div class="n">${rate}%</div><div class="l">réussite</div></div><div class="r"><div class="n">${SRS.stats().mastered}</div><div class="l">cartes maîtrisées</div></div></div>
       ${xpReward(liAfter, leveledUp)}
       <div class="finish-acts"><button class="btn btn-primary" onclick="showChooser()">Terminer</button></div>

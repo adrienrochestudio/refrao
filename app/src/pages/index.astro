@@ -3,26 +3,29 @@ import Base from '../layouts/Base.astro';
 import { withBase } from '../lib/paths';
 ---
 
-<Base title="refrão — apprendre les langues avec la musique" active="home">
+<Base title="refrão · apprendre les langues avec la musique" active="home">
   <main class="shell">
     <div class="landing">
       <div class="kicker" id="greet">boa tarde</div>
       <h1>Apprends les langues<br /><span class="em">en musique</span></h1>
       <p class="lead-sub" id="leadSub">Apprends en chantant.</p>
 
-      <a href={withBase('auth')} class="cta" id="cta">
-        Commencer à apprendre
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.6"
-          stroke-linecap="round"
-          stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg
-        >
-      </a>
+      <div class="cta-row">
+        <a href={withBase('auth')} class="cta" id="ctaLearn">
+          Apprendre
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg
+          >
+        </a>
+        <a href={withBase('auth')} class="cta cta-ghost" id="ctaManage">Ouvrir l'espace gestion</a>
+      </div>
 
       <div class="stats stagger" id="statRow" style="margin-top:48px;max-width:560px;width:100%">
         <div class="stat"><div class="n" id="stSongs">0</div><div class="l">chansons</div></div>
@@ -54,10 +57,10 @@ import { withBase } from '../lib/paths';
     'Du premier mot au refrain par cœur.'
   ];
   const MANAGER_SUBS: readonly string[] = [
-    "Donne à tes élèves le goût d'apprendre.",
-    'Tes cohortes, tes chansons, leurs progrès.',
-    'Transforme les musiques en leçons vivantes.',
-    'Accompagne chaque apprenant à son rythme.'
+    "Donnez à vos élèves le goût d'apprendre.",
+    'Vos cohortes, vos chansons, leurs progrès.',
+    'Transformez les musiques en leçons vivantes.',
+    'Accompagnez chaque apprenant à son rythme.'
   ];
 
   const sub = document.getElementById('leadSub');
@@ -74,7 +77,8 @@ import { withBase } from '../lib/paths';
     }, 4200);
   }
 
-  const cta = document.getElementById('cta');
+  const ctaLearn = document.getElementById('ctaLearn');
+  const ctaManage = document.getElementById('ctaManage');
   const statRow = document.getElementById('statRow');
   const elSongs = document.getElementById('stSongs');
   const elLearned = document.getElementById('stLearned');
@@ -82,12 +86,8 @@ import { withBase } from '../lib/paths';
 
   onAuthProfile(async ({ user, profile }) => {
     const isManager = !!(user && profile && profile.role === 'manager');
-    if (cta) {
-      cta.setAttribute('href', !user ? withBase('auth') : isManager ? withBase('gestion') : withBase('apprendre'));
-      if (cta.firstChild && cta.firstChild.nodeType === Node.TEXT_NODE) {
-        cta.firstChild.nodeValue = isManager ? "Ouvrir l'espace gestion " : 'Commencer à apprendre ';
-      }
-    }
+    if (ctaLearn) ctaLearn.setAttribute('href', user ? withBase('apprendre') : withBase('auth'));
+    if (ctaManage) ctaManage.setAttribute('href', user ? withBase('gestion') : withBase('auth'));
     subs = isManager ? MANAGER_SUBS : LEARNER_SUBS;
     si = 0;
     if (sub) sub.textContent = subs[0]!;
