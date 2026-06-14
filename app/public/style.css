@@ -747,3 +747,28 @@ a:focus-visible,button:focus-visible,.btn:focus-visible,.cta:focus-visible,.cta-
   }
   .bg-fx::before{animation:none;transform:none}
 }
+
+/* ============================================================
+   Lecteur audio persistant (Lot 4) · mini-barre fixe hors exercice
+   ============================================================ */
+.mini-player{
+  position:fixed;left:50%;bottom:0;transform:translateX(-50%) translateY(130%);
+  width:min(680px, calc(100% - var(--space-6)));
+  display:flex;align-items:center;gap:var(--space-3);
+  padding:var(--space-2) var(--space-3);margin-bottom:var(--space-3);
+  background:rgba(26,26,32,.86);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  border:1px solid var(--border-2);border-radius:var(--radius);
+  box-shadow:0 14px 44px -12px rgba(0,0,0,.6);
+  z-index:60;opacity:0;transition:transform .32s var(--ease), opacity .32s var(--ease);
+}
+.mini-player.show{transform:translateX(-50%) translateY(0);opacity:1}
+.mini-player .mp-cover{width:44px;height:44px;flex:none;border-radius:10px;object-fit:cover;background:var(--surface-3)}
+.mini-player .mp-play{width:44px;height:44px;flex:none;border-radius:50%;display:grid;place-items:center;background:var(--blue);color:#08111f;box-shadow:0 4px 0 #3f63a8;transition:transform .15s var(--ease), box-shadow .15s var(--ease)}
+.mini-player .mp-play:hover{box-shadow:0 5px 0 #3f63a8}
+.mini-player .mp-play:active{transform:translateY(3px);box-shadow:0 1px 0 #3f63a8}
+.mini-player .mp-meta{flex:1;min-width:0}
+.mini-player .mp-ttl{font-family:var(--font-display);font-weight:700;font-size:.98rem;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini-player .mp-art{color:var(--text-dim);font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini-player .mp-bar{height:5px;border-radius:99px;background:var(--surface-3);overflow:hidden;margin-top:6px}
+.mini-player .mp-bar i{display:block;height:100%;width:0;border-radius:99px;background:var(--blue);transition:width .25s linear}
+@media(max-width:560px){.mini-player{width:calc(100% - var(--space-4));gap:var(--space-2)}}
