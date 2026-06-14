@@ -29,7 +29,7 @@ Le produit est **en ligne et fonctionnel** (build Astro + TypeScript sur GitHub 
 - **Rétention addictive à l'état de l'art** (inspiration Duolingo / Meta) : streaks, récompenses variables, célébrations, micro-objectifs, boucles courtes, friction minimale.
 - **Différenciation vs Duolingo** (à garder en tête) : (1) le contenu est de la VRAIE musique, la chanson est la récompense et le but ; (2) contexte B2B école ; (3) cœur = répétition espacée, donc le **blocage multi-jours est honnête** (« reviens demain, ton cerveau consolide »), PAS des cœurs/énergie payants ; (4) accroche émotionnelle (aimer la chanson, comprendre enfin les paroles).
 - **Tu / Vous** : l'ÉLÈVE (app Apprendre) au **tutoiement** ; le PROF / gestionnaire (espace Gestion, client B2B) au **vouvoiement**.
-- **Jamais de tiret cadratin « — »** nulle part (préférence d'Adrien) ; copie courte (« le site parle trop » = à éviter).
+- **Jamais de tiret cadratin** nulle part (préférence d'Adrien ; utiliser « · », « : » ou « , ») ; copie courte (« le site parle trop » = à éviter).
 
 ## 4. Stack, hébergement & déploiement
 - **Front** : **Astro + TypeScript**, sortie 100 % statique (pas de SSR = pas de coût serveur), `base: '/refrao'`. App dans `app/`.
@@ -129,7 +129,7 @@ Le gestionnaire doit se reconnecter pour activer ses claims.
 - **Passes de review (prochaines, autres chats)** : continuer à simplifier/linéariser le **processus d'apprentissage** (moins de texte, plus direct, s'inspirer des meilleures apps) et revoir le **processus d'AJOUT** (gestion/import : le rendre fluide). Garder la boussole §3.
 - **Puis passe OPTIMISATION / SÉCURITÉ / FIABILITÉ / DÉPLOIEMENT / ANTICIPATION SCALING** (autre chat) avant d'élargir.
 - **Bloquants de COMMERCIALISATION (Phase 3, hors code)** : RGPD (données d'élèves possiblement mineurs), droits sur les paroles (œuvres protégées). Puis Stripe (exige un backend payant), domaine perso, self-service manager (clé API ou Cloud Function).
-- **Divers** : tirets « — » encore présents dans certains labels Gestion à finir de nettoyer ; calibrer le test de niveau (`leveltest`, stub) ; `README.md` décrit encore le vanilla.
+- **Divers** : tirets cadratins encore présents dans certains labels Gestion à finir de nettoyer ; calibrer le test de niveau (`leveltest`, stub) ; `README.md` décrit encore le vanilla.
 
 ## 15. Comment reprendre dans un nouveau chat
 1. Le chat démarre dans `~/refrao` : `CLAUDE.md` lu automatiquement (règles permanentes).
