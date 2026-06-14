@@ -264,7 +264,7 @@ function renderChooser(): void {
         .join('') +
       `</div>`;
   }
-  listEl.className = '';
+  listEl.className = 'stagger';
   listEl.innerHTML = home + hero + grid;
 }
 
