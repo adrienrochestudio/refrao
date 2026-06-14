@@ -126,6 +126,30 @@ function flameIcon(): string {
   return '<svg class="flame" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C9 6 6.5 8 6.5 12.5A5.5 5.5 0 0 0 17.5 13c0-2.6-1.5-4.2-2.6-5.7-.9 1-1.9 1.4-2.9.5.9-2 .6-4 0-5.8z"/></svg>';
 }
 
+// Objectif du jour (ancre de retour quotidien). Compteur local (pas de champ
+// Firestore en plus) ; nudge honnête, pas une barrière.
+const DAILY_GOAL = 3;
+function getDailyCount(): number {
+  try {
+    const raw = JSON.parse(localStorage.getItem('refrao_daily') || '{}');
+    const today = new Date().toISOString().slice(0, 10);
+    return raw.date === today ? raw.n || 0 : 0;
+  } catch {
+    return 0;
+  }
+}
+function bumpDaily(): number {
+  const today = new Date().toISOString().slice(0, 10);
+  const n = getDailyCount() + 1;
+  try {
+    localStorage.setItem('refrao_daily', JSON.stringify({ date: today, n }));
+  } catch {
+    /* localStorage indisponible */
+  }
+  if (n === DAILY_GOAL) toast('Objectif du jour atteint, bravo');
+  return n;
+}
+
 function clockIcon(): string {
   return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
 }
@@ -179,8 +203,15 @@ function renderChooser(): void {
   const nm = S.profile?.firstName ? ', ' + esc(S.profile.firstName) : '';
   const streak = S.profile?.streak?.count || 0;
   const li = levelInfo(S.prog.xp || 0);
+  const dc = getDailyCount();
+  const dpct = Math.min(100, Math.round((dc / DAILY_GOAL) * 100));
+  const goalDone = dc >= DAILY_GOAL;
   const home = `<div class="learn-home">
-      <div class="lh-hi"><h3>${part}${nm}</h3><div class="lh-sub">${dueCount ? `${dueCount} carte${dueCount > 1 ? 's' : ''} à revoir aujourd’hui.` : 'Prêt pour une nouvelle leçon ?'}</div></div>
+      <div class="lh-hi">
+        <h3>${part}${nm}</h3>
+        <div class="lh-sub">${goalDone ? 'Objectif du jour atteint, bravo' : `Objectif du jour : ${dc}/${DAILY_GOAL}`}${dueCount ? ` · ${dueCount} à revoir` : ''}</div>
+        <div class="daily-bar ${goalDone ? 'done' : ''}"><i style="width:${dpct}%"></i></div>
+      </div>
       <div class="lh-meta">
         <div class="lh-xp" title="${S.prog.xp || 0} XP au total">
           <div class="lx-top"><span class="lx-lvl">Niv. ${li.lvl}</span><span class="lx-pts">${li.into}/${li.need} XP</span></div>
@@ -565,7 +596,10 @@ async function markDiscovered(id: string): Promise<void> {
   S.prog.songs[id]!.discovered = true;
   if (fresh) S.prog.xp = (S.prog.xp || 0) + 5;
   await saveProgress(S.uid, S.prog);
-  if (fresh) toast('+5 XP · première écoute');
+  if (fresh) {
+    toast('+5 XP · première écoute');
+    bumpDaily();
+  }
   openSong(id);
 }
 
@@ -837,6 +871,7 @@ async function finishTraining(): Promise<void> {
   await SRS.save();
   await saveProgress(S.uid, S.prog);
   if (S.profile) await touchStreak(S.uid, S.profile);
+  bumpDaily();
   if (mastered || leveledUp) confetti();
   const pct = SRS.sectionPct(s, ss.sec);
   const wrap = $id('exWrap');
@@ -1012,6 +1047,7 @@ async function finishReview(): Promise<void> {
   await SRS.save();
   await saveProgress(S.uid, S.prog);
   if (S.profile) await touchStreak(S.uid, S.profile);
+  bumpDaily();
   confetti();
   const wrap = $id('exWrap');
   if (wrap)
