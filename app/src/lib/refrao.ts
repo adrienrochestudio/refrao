@@ -75,7 +75,7 @@ const ENT: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"
 export const esc = (s: unknown): string =>
   (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ENT[c] ?? c);
 
-// Normalisation (sans accents, minuscule, sans ponctuation) — identique à l'ancien core.js.
+// Normalisation (sans accents, minuscule, sans ponctuation) · identique à l'ancien core.js.
 export const fold = (s: unknown): string =>
   String(s ?? '')
     .normalize('NFD')
@@ -139,7 +139,7 @@ export function songComplete(s: Song): boolean {
 }
 
 // Jauges visuelles d'une chanson : plutôt que des chiffres bruts (mots/vers),
-// on donne à l'apprenant un ressenti immédiat — Difficulté (CEFR), Longueur
+// on donne à l'apprenant un ressenti immédiat · Difficulté (CEFR), Longueur
 // (nombre de vers) et Densité (diversité lexicale = varié/dense). Niveaux 1..4.
 const SEG = 4;
 const segClamp = (n: number): number => Math.max(1, Math.min(SEG, Math.round(n)));

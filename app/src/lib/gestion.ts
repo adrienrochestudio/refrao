@@ -64,14 +64,14 @@ async function load(): Promise<void> {
     if (cap) cap.textContent = langLabel(val('#edLang'));
   };
   ($('#edCefr') as HTMLSelectElement).innerHTML = CEFR.map(
-    c => `<option value="${c}">${c} — bande ${bandOf(c)} (${bandName(bandOf(c))})</option>`
+    c => `<option value="${c}">${c} · bande ${bandOf(c)} (${bandName(bandOf(c))})</option>`
   ).join('');
   ($('#edCefr') as HTMLSelectElement).onchange = () => {
     const h = $('#bandHint');
-    if (h) h.textContent = 'Bande ' + bandOf(val('#edCefr')) + ' — ' + bandName(bandOf(val('#edCefr')));
+    if (h) h.textContent = 'Bande ' + bandOf(val('#edCefr')) + ' · ' + bandName(bandOf(val('#edCefr')));
   };
   ($('#edGenre') as HTMLSelectElement).innerHTML =
-    `<option value="">— choisir —</option>` + GENRES.map(g => `<option value="${g}">${g}</option>`).join('');
+    `<option value="">choisir</option>` + GENRES.map(g => `<option value="${g}">${g}</option>`).join('');
 
   SONGS = await getSongs();
   renderBank();
@@ -97,16 +97,16 @@ async function renderCohort(): Promise<void> {
   const ent = entitlement();
   const valid = licenseValid();
   const until = lic?.validUntil ?? ent?.validUntil ?? null;
-  const planName = lic?.plan ?? ent?.plan ?? '—';
+  const planName = lic?.plan ?? ent?.plan ?? '·';
   const seats = lic?.seats;
   const dleft = until ? Math.ceil((until - Date.now()) / 864e5) : null;
   const expSoon = !!(dleft !== null && dleft <= 30 && dleft > 0);
   const col = !valid ? 'var(--red)' : expSoon ? '#e0a800' : 'var(--green)';
-  const untilStr = until ? new Date(until).toLocaleDateString('fr-FR') : '—';
+  const untilStr = until ? new Date(until).toLocaleDateString('fr-FR') : '·';
   const seatStr = seats ? learners.length + ' / ' + seats + ' apprenants' : learners.length + ' apprenants';
   const licBanner = `<div class="lic-banner" style="display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding:10px 14px;margin-bottom:14px;border:1px solid var(--border);border-left:3px solid ${col};border-radius:10px;font-size:.84rem">
     <b style="color:${col}">Licence ${esc(planName)}</b>
-    <span style="color:var(--text-mute)">${!valid ? 'expirée — création/édition bloquée' : 'valide jusqu\'au ' + esc(untilStr) + (expSoon ? ' · ' + dleft + ' j restants' : '')}</span>
+    <span style="color:var(--text-mute)">${!valid ? 'expirée · création/édition bloquée' : 'valide jusqu\'au ' + esc(untilStr) + (expSoon ? ' · ' + dleft + ' j restants' : '')}</span>
     <span style="color:var(--text-mute);margin-left:auto">${esc(seatStr)}</span>
   </div>`;
 
@@ -116,7 +116,7 @@ async function renderCohort(): Promise<void> {
     const cardsMap = await getCards(l.uid).catch(() => ({}) as Record<string, { state?: string }>);
     const mastered = Object.values(cardsMap).filter(c => c.state === 'maîtrisée').length;
     const r = prog.recent ?? [];
-    const rate = r.length ? Math.round((r.filter(Boolean).length / r.length) * 100) + '%' : '—';
+    const rate = r.length ? Math.round((r.filter(Boolean).length / r.length) * 100) + '%' : '·';
     const completed = Object.values(prog.songs ?? {}).filter(x => x.completed).length;
     const cefr = l.cefr || 'A2';
     const name = esc(((l.firstName || '') + ' ' + (l.lastName || '')).trim() || l.email || 'Apprenant');
@@ -140,7 +140,7 @@ async function renderCohort(): Promise<void> {
     </div>
     <div class="cohort-settings">
       <div class="cs-field"><label>Langue</label><select id="coLang">${LANGS.map(l => `<option value="${l.code}" ${cohort.lang === l.code ? 'selected' : ''}>${l.label}</option>`).join('')}</select></div>
-      <div class="cs-field"><label>Niveau visé</label><select id="coLevel">${CEFR.map(c => `<option value="${c}" ${cohort.level === c ? 'selected' : ''}>${c} — bande ${bandOf(c)}</option>`).join('')}</select></div>
+      <div class="cs-field"><label>Niveau visé</label><select id="coLevel">${CEFR.map(c => `<option value="${c}" ${cohort.level === c ? 'selected' : ''}>${c} · bande ${bandOf(c)}</option>`).join('')}</select></div>
       <div class="cs-field"><label>Catégorie de chansons</label><select id="coCat">${genreOpts}</select></div>
     </div>
     ${learners.length ? `<table class="cohort-table"><thead><tr><th>Apprenant</th><th>Niveau</th><th>Cartes</th><th>Complétées</th><th>Réussite</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="hint" style="margin-top:10px">Aucun apprenant n'a encore rejoint cette cohorte.</div>`}
@@ -194,7 +194,7 @@ function renderBank(): void {
       SONGS.length +
       ' chanson' +
       (SONGS.length > 1 ? 's' : '') +
-      ' — bibliothèque commune' +
+      ' · bibliothèque commune' +
       (incomplete ? ` · <span style="color:var(--red)">${incomplete} incomplète${incomplete > 1 ? 's' : ''}</span>` : '');
   if (!SONGS.length) {
     listEl.className = '';
@@ -223,7 +223,7 @@ function renderBank(): void {
         ${complete ? '' : `<span class="incomplete-badge">incomplète</span>`}
       </div>
       <div class="ttl">${esc(s.title)}</div>
-      <div class="art">${esc(s.artist || '—')}</div>
+      <div class="art">${esc(s.artist || '·')}</div>
       ${s.tags ? `<div class="tags">${esc(s.tags)}</div>` : ''}
       ${songMeters(s)}
     </div>`;
@@ -325,7 +325,7 @@ async function importDeezer(): Promise<void> {
 /* ---- éditeur ---- */
 function openEditor(id?: string): void {
   if (!licenseValid()) {
-    toast('Licence expirée — contacte refrão pour la renouveler.');
+    toast('Licence expirée · contacte refrão pour la renouveler.');
     return;
   }
   const s = id ? SONGS.find(x => x.id === id) : null;
@@ -352,7 +352,7 @@ function openEditor(id?: string): void {
   setV('#edLang', s ? s.lang || 'pt' : PROFILE?.lang || 'pt');
   setText('#capPt', langLabel(val('#edLang')));
   setV('#edCefr', s ? s.cefr || 'A2' : 'A2');
-  setText('#bandHint', 'Bande ' + bandOf(val('#edCefr')) + ' — ' + bandName(bandOf(val('#edCefr'))));
+  setText('#bandHint', 'Bande ' + bandOf(val('#edCefr')) + ' · ' + bandName(bandOf(val('#edCefr'))));
   setV('#edGenre', s ? s.genre || '' : '');
   setV('#edTags', s ? s.tags || '' : '');
   const txt = s && Array.isArray(s.sections) && s.sections.length ? sectionsToText(s.sections) : { pt: s?.pt || '', fr: s?.fr || '' };
@@ -367,7 +367,7 @@ function openEditor(id?: string): void {
 function detectStructure(): void {
   edit.sections = autoSections(val('#edPt'), val('#edFr'));
   renderStruct();
-  toast(edit.sections.length + ' section(s) détectée(s) — vérifie refrain/couplet');
+  toast(edit.sections.length + ' section(s) détectée(s) · vérifie refrain/couplet');
 }
 function renderStruct(): void {
   const panel = $('#structPanel');
@@ -454,7 +454,7 @@ function renderPairs(): void {
         (p, i) =>
           `<span class="pair-chip"><span class="pt">${esc(p.pt)}</span><span class="ar">→</span><span class="fr">${esc(p.fr)}</span><button class="x" onclick="delPair(${i})">×</button></span>`
       )
-      .join('') || `<span style="color:var(--text-mute);font-size:.82rem">Aucune paire — sélectionne des mots ci-dessus.</span>`;
+      .join('') || `<span style="color:var(--text-mute);font-size:.82rem">Aucune paire · sélectionne des mots ci-dessus.</span>`;
 }
 function delPair(i: number): void {
   edit.pairs.splice(i, 1);
@@ -492,7 +492,7 @@ async function saveEditor(): Promise<void> {
     toast('Enregistrement refusé (licence ou droits).');
     return;
   }
-  if (!songComplete(song)) toast('Enregistrée, mais incomplète — invisible côté apprenants');
+  if (!songComplete(song)) toast('Enregistrée, mais incomplète · invisible côté apprenants');
   SONGS = await getSongs();
   const wasEdit = edit.id;
   closeEditor();
