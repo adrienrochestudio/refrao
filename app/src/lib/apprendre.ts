@@ -55,8 +55,22 @@ const songBand = (s: Song): number => s.band || bandOf(s.cefr || 'A2');
 
 export function boot(): void {
   mountMiniPlayer();
+  enableKeyboardActivation();
   guard('any', async ({ user, profile }) => {
     await init(user!.uid, profile);
+  });
+}
+
+/* Accessibilité clavier : les cartes/étapes cliquables sont des div (pont
+   transitoire onclick inline). Elles sont rendues focusables via tabindex dans
+   leurs gabarits ; ici on les active au clavier (Entrée / Espace = onclick). */
+function enableKeyboardActivation(): void {
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+    const el = (e.target as HTMLElement | null)?.closest('.song-card,.continue-card,.pstep') as HTMLElement | null;
+    if (!el || !el.hasAttribute('onclick')) return;
+    e.preventDefault();
+    el.click();
   });
 }
 
@@ -227,14 +241,14 @@ function renderChooser(): void {
   // sinon on reprend / commence une chanson.
   let hero = '';
   if (dueCount > 0) {
-    hero = `<div class="continue-card" onclick="startReview()">
+    hero = `<div class="continue-card" role="button" tabindex="0" onclick="startReview()">
       <div class="cc-l"><div class="cc-tag">Révision</div><div class="cc-ttl">${dueCount} carte${dueCount > 1 ? 's' : ''} à revoir</div><div class="cc-sub">Tes points faibles d'abord</div></div>
       <div class="cc-play">${playIcon()}</div>
     </div>`;
   } else {
     const na = nextActivity();
     if (na)
-      hero = `<div class="continue-card" onclick="openSong('${na.song.id}')">
+      hero = `<div class="continue-card" role="button" tabindex="0" onclick="openSong('${na.song.id}')">
       <div class="cc-l"><div class="cc-tag">${na.label}</div><div class="cc-ttl">${esc(na.song.title)}</div><div class="cc-sub">${na.sub}</div></div>
       <div class="cc-play">${playIcon()}</div>
     </div>`;
@@ -257,7 +271,7 @@ function renderChooser(): void {
           const ps = S.prog.songs?.[s.id] ?? {};
           const ref = refrain(s);
           const pct = ref ? SRS.sectionPct(s, ref) : 0;
-          return `<div class="song-card" data-cover-seed="${esc(s.id)}" data-cover="${esc(s.cover || '')}" onclick="openSong('${s.id}')">
+          return `<div class="song-card" data-cover-seed="${esc(s.id)}" data-cover="${esc(s.cover || '')}" role="button" tabindex="0" onclick="openSong('${s.id}')">
       <div class="cefr-badge b${b}">${esc(s.cefr || ['', 'A2', 'B1', 'C1'][b])}</div>
       <div class="ttl">${esc(s.title)}</div>
       <div class="art">${esc(s.artist || '')}</div>
@@ -382,7 +396,7 @@ function openSong(id: string): void {
   const bubble = (state: string): string =>
     state === 'done' ? miniCheck() : state === 'locked' ? lockIcon() : state === 'resting' ? clockIcon() : playIcon();
   const step = (state: string, tag: string, name: string, desc: string, action: string | null): string => `
-    <div class="pstep ${state}" ${state === 'current' && action ? `onclick="${action}"` : ''}>
+    <div class="pstep ${state}" ${state === 'current' && action ? `onclick="${action}" role="button" tabindex="0"` : ''}>
       <div class="pbubble">${bubble(state)}</div>
       <div class="pinfo"><div class="ptag">${tag}</div><div class="pname">${name}</div><div class="pdesc">${desc}</div></div>
     </div>`;
