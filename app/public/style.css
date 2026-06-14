@@ -574,6 +574,9 @@ h1 .em{color:var(--blue);font-style:normal}
 .learn-home{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:6px 0 18px}
 .learn-home .lh-hi h3{font-family:var(--font-display);font-weight:800;font-size:1.5rem;letter-spacing:-.01em}
 .learn-home .lh-sub{color:var(--text-dim);font-size:.9rem;margin-top:2px}
+.daily-bar{height:6px;width:170px;max-width:60vw;margin-top:9px;border-radius:99px;background:var(--surface-3);overflow:hidden}
+.daily-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--green),var(--blue));transition:width .9s var(--ease)}
+.daily-bar.done i{background:var(--green)}
 .lh-streak{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid var(--border);border-radius:99px;background:var(--surface);font-size:.92rem;color:var(--text-dim)}
 .lh-streak b{font-size:1.05rem;color:var(--text)}
 .lh-streak .flame{color:#ffb15c}
