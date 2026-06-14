@@ -144,6 +144,21 @@ export function sectionPct(song: Song, section: Section): number {
   return Math.round((cs.reduce((s, c) => s + Math.min(c.streak, 3), 0) / (cs.length * 3)) * 100);
 }
 
+// Blocage multi-jours = on fait respecter les échéances de répétition espacée.
+// Une partie déjà travaillée « repose » jusqu'à ce qu'au moins une de ses cartes
+// soit due. Pas encore générée (jamais travaillée) = prête.
+export function sectionReady(song: Song, section: Section, now = Date.now()): boolean {
+  const cs = cardsForSection(song, section);
+  if (!cs.length) return true;
+  return cs.some(c => c.due <= now);
+}
+// Quand la partie redevient disponible (échéance la plus proche).
+export function sectionDueAt(song: Song, section: Section): number {
+  const cs = cardsForSection(song, section);
+  if (!cs.length) return Date.now();
+  return Math.min(...cs.map(c => c.due));
+}
+
 export interface Prog {
   recent?: number[];
 }
