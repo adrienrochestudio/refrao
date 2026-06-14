@@ -54,6 +54,7 @@ const langOf = (): string => langLabel(S.sess?.song?.lang || S.curlang);
 const songBand = (s: Song): number => s.band || bandOf(s.cefr || 'A2');
 
 export function boot(): void {
+  mountMiniPlayer();
   guard('any', async ({ user, profile }) => {
     await init(user!.uid, profile);
   });
@@ -87,6 +88,9 @@ function showView(id: string): void {
   document.querySelectorAll('main .view').forEach(v => v.classList.remove('active'));
   $id(id)?.classList.add('active');
   window.scrollTo({ top: 0, behavior: 'smooth' });
+  // Lecteur persistant : présent sur accueil/parcours, masqué + en pause en exercice (focus total).
+  if (id === 'exercise') hideMiniPlayer();
+  else refreshMiniPlayer();
 }
 function showChooser(): void {
   renderChooser();
@@ -338,6 +342,7 @@ function openSong(id: string): void {
     showChooser();
     return;
   }
+  setMiniSong(s);
   const secs = sections(s);
   if (!secs.length) {
     const sv = $id('songView');
@@ -784,6 +789,153 @@ function stopExAudio(): void {
   exAudio = null;
   $id('exYt')?.remove();
 }
+
+/* ---------- Lecteur audio persistant (mini-barre, hors exercice) ----------
+   Joue le morceau ENTIER de la chanson en cours, sur l'accueil et le parcours.
+   Se met en pause et s'efface dès qu'un exercice démarre (focus total). Player
+   YouTube DÉDIÉ (séparé du lecteur de segments exAudio) : aucun conflit, et les
+   deux ne jouent jamais en même temps (vues disjointes). État préservé entre
+   accueil et parcours (le player n'est ni détruit ni recréé à la navigation). */
+let miniAudio: { player: any; raf: number; videoId: string } | null = null;
+let miniSong: Song | null = null;
+
+function setMiniSong(s: Song): void {
+  miniSong = s;
+}
+
+function mountMiniPlayer(): void {
+  if ($id('miniPlayer')) return;
+  const bar = document.createElement('div');
+  bar.id = 'miniPlayer';
+  bar.className = 'mini-player';
+  bar.innerHTML =
+    `<img class="mp-cover" id="mpCover" alt="" />` +
+    `<button class="mp-play" id="mpPlay" type="button" aria-label="Lecture">${mpPlayIcon()}</button>` +
+    `<div class="mp-meta"><div class="mp-ttl" id="mpTtl"></div><div class="mp-art" id="mpArt"></div>` +
+    `<div class="mp-bar"><i id="mpProg"></i></div></div>`;
+  document.body.appendChild(bar);
+  $id('mpPlay')?.addEventListener('click', () => void toggleMiniPlay());
+}
+
+function refreshMiniPlayer(): void {
+  const bar = $id('miniPlayer');
+  if (!bar) return;
+  if (!miniSong || !miniSong.youtubeId) {
+    bar.classList.remove('show');
+    return;
+  }
+  const cover = $id('mpCover') as HTMLImageElement | null;
+  if (cover) cover.src = miniSong.cover || '';
+  const ttl = $id('mpTtl');
+  if (ttl) ttl.textContent = miniSong.title || '';
+  const art = $id('mpArt');
+  if (art) art.textContent = miniSong.artist || '';
+  bar.classList.add('show');
+  // Si on écoutait déjà et que la chanson a changé, on bascule le son en cours.
+  if (miniAudio && miniAudio.videoId !== miniSong.youtubeId) {
+    try {
+      if (miniAudio.player.getPlayerState?.() === 1) {
+        miniAudio.player.loadVideoById(miniSong.youtubeId);
+        miniAudio.videoId = miniSong.youtubeId;
+      }
+    } catch {
+      /* player pas prêt */
+    }
+  }
+}
+
+function hideMiniPlayer(): void {
+  $id('miniPlayer')?.classList.remove('show');
+  if (miniAudio) {
+    cancelAnimationFrame(miniAudio.raf);
+    try {
+      miniAudio.player.pauseVideo();
+    } catch {
+      /* idle */
+    }
+  }
+  setMiniIcon(false);
+}
+
+async function toggleMiniPlay(): Promise<void> {
+  const s = miniSong;
+  if (!s?.youtubeId) return;
+  if (!miniAudio) {
+    const YT = await loadYT();
+    if (!$id('miniPlayer')) return;
+    if (!$id('miniYt')) {
+      const mount = document.createElement('div');
+      mount.id = 'miniYt';
+      mount.style.cssText = 'position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1';
+      document.body.appendChild(mount);
+    }
+    const vid = s.youtubeId;
+    const player = new YT.Player('miniYt', {
+      videoId: vid,
+      playerVars: { rel: 0, playsinline: 1, controls: 0 },
+      events: {
+        onReady: () => {
+          try {
+            player.playVideo();
+          } catch {
+            /* ignore */
+          }
+        },
+        onStateChange: onMiniState
+      }
+    });
+    miniAudio = { player, raf: 0, videoId: vid };
+    return;
+  }
+  try {
+    if (miniAudio.videoId !== s.youtubeId) {
+      miniAudio.player.loadVideoById(s.youtubeId);
+      miniAudio.videoId = s.youtubeId;
+      return;
+    }
+    if (miniAudio.player.getPlayerState?.() === 1) miniAudio.player.pauseVideo();
+    else miniAudio.player.playVideo();
+  } catch {
+    /* player pas prêt */
+  }
+}
+
+function onMiniState(e: any): void {
+  const playing = e?.data === 1; // YT.PlayerState.PLAYING
+  setMiniIcon(playing);
+  if (!miniAudio) return;
+  cancelAnimationFrame(miniAudio.raf);
+  if (playing) miniAudio.raf = requestAnimationFrame(miniTick);
+}
+
+function miniTick(): void {
+  if (!miniAudio) return;
+  try {
+    const p = miniAudio.player;
+    const dur = p.getDuration?.() || 0;
+    const cur = p.getCurrentTime?.() || 0;
+    const prog = $id('mpProg');
+    if (prog && dur > 0) prog.style.width = `${Math.min(100, (cur / dur) * 100)}%`;
+  } catch {
+    /* player pas prêt */
+  }
+  miniAudio.raf = requestAnimationFrame(miniTick);
+}
+
+function setMiniIcon(playing: boolean): void {
+  const btn = $id('mpPlay');
+  if (!btn) return;
+  btn.innerHTML = playing ? mpPauseIcon() : mpPlayIcon();
+  btn.setAttribute('aria-label', playing ? 'Pause' : 'Lecture');
+}
+
+function mpPlayIcon(): string {
+  return '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+}
+function mpPauseIcon(): string {
+  return '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>';
+}
+
 function renderClozeQ(): void {
   const ss = S.sess;
   if (ss.idx >= ss.qs.length) {
