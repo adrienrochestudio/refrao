@@ -196,7 +196,6 @@ function renderChooser(): void {
   const listEl = $id('learnList');
   if (!listEl) return;
   const dueCount = SRS.due().length;
-  const st = SRS.stats();
 
   const hr = new Date().getHours();
   const part = hr < 12 ? 'Bonjour' : hr < 18 ? 'Bon après-midi' : 'Bonsoir';
@@ -220,22 +219,22 @@ function renderChooser(): void {
         <div class="lh-streak ${streak ? '' : 'cold'}" title="${streak ? 'Reviens chaque jour pour garder ta série' : 'Apprends aujourd’hui pour lancer ta série'}">${flameIcon()}<b>${streak}</b><span>jour${streak > 1 ? 's' : ''} de série</span></div>
       </div>
     </div>`;
-  const na = nextActivity();
-  const cont = na
-    ? `<div class="continue-card" onclick="openSong('${na.song.id}')">
+  // Une seule action évidente (chemin linéaire). Cartes à revoir = priorité ;
+  // sinon on reprend / commence une chanson.
+  let hero = '';
+  if (dueCount > 0) {
+    hero = `<div class="continue-card" onclick="startReview()">
+      <div class="cc-l"><div class="cc-tag">Révision</div><div class="cc-ttl">${dueCount} carte${dueCount > 1 ? 's' : ''} à revoir</div><div class="cc-sub">Tes points faibles d'abord</div></div>
+      <div class="cc-play">${playIcon()}</div>
+    </div>`;
+  } else {
+    const na = nextActivity();
+    if (na)
+      hero = `<div class="continue-card" onclick="openSong('${na.song.id}')">
       <div class="cc-l"><div class="cc-tag">${na.label}</div><div class="cc-ttl">${esc(na.song.title)}</div><div class="cc-sub">${na.sub}</div></div>
       <div class="cc-play">${playIcon()}</div>
-    </div>`
-    : '';
-  const review = `
-    <div class="review-card">
-      <div class="rc-left">
-        <div class="rc-tag"><span class="live-dot"></span>Révision du jour</div>
-        <div class="rc-sub">${dueCount ? dueCount + ' carte' + (dueCount > 1 ? 's' : '') + ' à revoir.' : 'Rien à revoir pour le moment.'}</div>
-        <div class="rc-stats"><span><b>${st.mastered}</b> maîtrisées</span><span><b>${st.learning}</b> en cours</span>${S.profile && S.profile.streak ? `<span><b>${S.profile.streak.count || 0}</b> j. de suite</span>` : ''}</div>
-      </div>
-      <button class="btn ${dueCount ? 'btn-primary' : 'btn-ghost'}" ${dueCount ? '' : 'disabled'} onclick="startReview()">Réviser</button>
     </div>`;
+  }
 
   const songs = songsForLang()
     .slice()
@@ -244,24 +243,21 @@ function renderChooser(): void {
     );
   let grid: string;
   if (!songs.length) {
-    grid = `<div class="empty"><b>Aucune chanson en ${esc(langLabel(S.curlang))}</b>Choisis une autre langue, ou demande à un gestionnaire d'en ajouter.</div>`;
+    grid = `<div class="empty"><b>Aucune chanson pour le moment</b>Demande à ton professeur d'en ajouter.</div>`;
   } else {
     grid =
-      `<div class="song-grid stagger">` +
+      `<div class="songs-head">Tes chansons</div><div class="song-grid stagger">` +
       songs
         .map(s => {
           const b = songBand(s);
-          const above = b > S.band;
           const ps = S.prog.songs?.[s.id] ?? {};
           const ref = refrain(s);
           const pct = ref ? SRS.sectionPct(s, ref) : 0;
           return `<div class="song-card" onclick="openSong('${s.id}')">
       <div class="cefr-badge b${b}">${esc(s.cefr || ['', 'A2', 'B1', 'C1'][b])}</div>
       <div class="ttl">${esc(s.title)}</div>
-      <div class="art">${esc(s.artist || '·')}</div>
-      ${songMeters(s)}
-      ${above ? `<div class="above">un cran au-dessus · i+1</div>` : ''}
-      ${ps.completed ? `<div class="done-tag">${ps.full ? 'Maîtrise complète' : 'Complétée'}</div>` : ''}
+      <div class="art">${esc(s.artist || '')}</div>
+      ${ps.completed ? `<div class="done-tag">${ps.full ? 'Maîtrisé' : 'Complété'}</div>` : ''}
       <div class="prog"><div class="bar"><i style="width:${pct}%"></i></div></div>
     </div>`;
         })
@@ -269,7 +265,7 @@ function renderChooser(): void {
       `</div>`;
   }
   listEl.className = '';
-  listEl.innerHTML = home + cont + review + grid;
+  listEl.innerHTML = home + hero + grid;
 }
 
 /* ---------- parcours d'une chanson ---------- */
@@ -385,6 +381,7 @@ function openSong(id: string): void {
         <div class="cefr-badge b${songBand(s)} big">${esc(s.cefr || 'A2')}</div>
       </div>
     </div>
+    ${songMeters(s)}
     ${xpStrip(true)}
     ${banner}
     <div class="parcours">${steps}</div>`;
