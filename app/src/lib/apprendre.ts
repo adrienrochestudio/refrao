@@ -283,19 +283,28 @@ function renderChooser(): void {
     grid = `<div class="empty"><b>Aucune chanson pour le moment</b>Demande à ton professeur d'en ajouter.</div>`;
   } else {
     grid =
-      `<div class="songs-head">Tes chansons</div><div class="song-grid stagger">` +
+      `<div class="songs-head">Tes chansons</div><div class="song-list stagger">` +
       songs
         .map(s => {
           const b = songBand(s);
           const ps = S.prog.songs?.[s.id] ?? {};
           const ref = refrain(s);
           const pct = ref ? SRS.sectionPct(s, ref) : 0;
-          return `<div class="song-card" data-cover-seed="${esc(s.id)}" data-cover="${esc(s.cover || '')}" role="button" tabindex="0" onclick="openSong('${s.id}')">
-      <div class="cefr-badge b${b}">${esc(s.cefr || ['', 'A2', 'B1', 'C1'][b])}</div>
-      <div class="ttl">${esc(s.title)}</div>
-      <div class="art">${esc(s.artist || '')}</div>
-      ${ps.completed ? `<div class="done-tag">${ps.full ? 'Maîtrisé' : 'Complété'}</div>` : ''}
-      <div class="prog"><div class="bar"><i style="width:${pct}%"></i></div></div>
+          const cover = s.cover
+            ? `<img class="sr-cover" src="${esc(s.cover)}" alt="" loading="lazy">`
+            : `<span class="sr-cover sr-cover-fb" style="background:${coverSwatch(s.id)}">${esc((s.title || '?').trim().slice(0, 1).toUpperCase())}</span>`;
+          return `<div class="song-row" role="button" tabindex="0" onclick="openSong('${s.id}')">
+      ${cover}
+      <div class="sr-main">
+        <div class="sr-ttl">${esc(s.title)}</div>
+        <div class="sr-art">${esc(s.artist || '')}</div>
+        ${pct > 0 ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ''}
+      </div>
+      <div class="sr-side">
+        ${ps.completed ? `<span class="done-tag">${ps.full ? 'Maîtrisé' : 'Complété'}</span>` : ''}
+        <span class="cefr-badge b${b}">${esc(s.cefr || ['', 'A2', 'B1', 'C1'][b])}</span>
+        <svg class="sr-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"></path></svg>
+      </div>
     </div>`;
         })
         .join('') +
@@ -303,69 +312,14 @@ function renderChooser(): void {
   }
   listEl.className = 'stagger';
   listEl.innerHTML = home + hero + grid;
-  tintSongCards(listEl);
 }
 
-/* ---------- teinte de carte par couleur dominante de la pochette ----------
-   Effet « Spotify » discret : on échantillonne une vignette de la pochette et on
-   pose une teinte douce en fond de carte. Repli déterministe (teinte dérivée de
-   l'identifiant) si la pochette manque ou si le canvas est bloqué par CORS. */
-const coverTints = new Map<string, string>();
-function tintSongCards(root: HTMLElement): void {
-  root.querySelectorAll<HTMLElement>('.song-card[data-cover-seed]').forEach(card => {
-    const seed = card.dataset.coverSeed || '';
-    const cover = card.dataset.cover || '';
-    const cached = coverTints.get(seed);
-    if (cached) {
-      card.style.setProperty('--cover-tint', cached);
-      return;
-    }
-    // Repli immédiat : il y a toujours une teinte, affinée si l'extraction réussit.
-    const fallback = tintFromSeed(seed);
-    coverTints.set(seed, fallback);
-    card.style.setProperty('--cover-tint', fallback);
-    if (!cover) return;
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const rgb = averageColor(img);
-      if (!rgb) return; // canvas « tainted » (CORS) : on garde le repli
-      const tint = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, .22)`;
-      coverTints.set(seed, tint);
-      card.style.setProperty('--cover-tint', tint);
-    };
-    img.src = cover;
-  });
-}
-function averageColor(img: HTMLImageElement): [number, number, number] | null {
-  try {
-    const c = document.createElement('canvas');
-    c.width = c.height = 16;
-    const ctx = c.getContext('2d');
-    if (!ctx) return null;
-    ctx.drawImage(img, 0, 0, 16, 16);
-    const d = ctx.getImageData(0, 0, 16, 16).data;
-    let r = 0;
-    let g = 0;
-    let b = 0;
-    let n = 0;
-    for (let i = 0; i < d.length; i += 4) {
-      if (d[i + 3]! < 200) continue;
-      r += d[i]!;
-      g += d[i + 1]!;
-      b += d[i + 2]!;
-      n++;
-    }
-    if (!n) return null;
-    return [Math.round(r / n), Math.round(g / n), Math.round(b / n)];
-  } catch {
-    return null; // getImageData lève si le canvas est bloqué par CORS
-  }
-}
-function tintFromSeed(seed: string): string {
+// Pastille de repli quand une chanson n'a pas de pochette : couleur stable
+// dérivée de l'identifiant (toujours la même teinte pour une même chanson).
+function coverSwatch(seed: string): string {
   let h = 0;
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) % 360;
-  return `hsla(${h}, 50%, 55%, .16)`;
+  return `hsl(${h}, 42%, 30%)`;
 }
 
 /* ---------- parcours d'une chanson ---------- */
