@@ -668,6 +668,18 @@ h1 .em{color:var(--blue);font-style:normal}
 .lh-streak b{font-size:1.05rem;color:var(--text)}
 .lh-streak .flame{color:#ffb15c}
 .lh-streak.cold .flame{color:var(--text-mute)}
+
+/* Pastilles discrètes (niveau + série) : présentes mais secondaires, pour que
+   l'objectif du jour reste le seul focus du bandeau (persona : une chose à la fois). */
+.lh-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.stat-chip{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border:1px solid var(--border);border-radius:99px;background:var(--surface);font-size:.82rem;color:var(--text-dim);line-height:1}
+.stat-chip .sc-lvl{font-weight:700;color:var(--text)}
+.stat-chip .sc-bar{width:42px;height:4px;border-radius:99px;background:var(--surface-3);overflow:hidden}
+.stat-chip .sc-bar b{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--reward),#ffd87a);transition:width .9s var(--ease)}
+.stat-chip b{color:var(--text);font-weight:700;font-size:.95rem}
+.stat-chip .flame{color:#ffb15c}
+.stat-chip.cold{color:var(--text-mute)}
+.stat-chip.cold .flame{color:var(--text-mute)}
 .continue-card{display:flex;align-items:center;gap:var(--space-4);padding:var(--space-4) var(--space-5);margin-bottom:var(--space-4);border:1px solid var(--border-2);border-radius:var(--radius);background:linear-gradient(120deg,rgba(128,183,255,.12),rgba(128,183,255,.03));cursor:pointer;transition:transform .3s var(--ease),border-color .3s}
 .continue-card:hover{transform:translateY(-3px);border-color:var(--blue);box-shadow:0 24px 48px -24px rgba(40,90,170,.5),inset 0 1px 0 rgba(255,255,255,.06)}
 .continue-card .cc-l{flex:1;min-width:0}
