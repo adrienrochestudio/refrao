@@ -47,7 +47,6 @@ const S: AppState = {
   cohort: null,
   uid: ''
 };
-const LANG_COLORS: Record<string, string> = { en: '#80b7ff', pt: '#7ef0b0', es: '#b89bff', de: '#ff9d7a' };
 
 const $id = (id: string): HTMLElement | null => document.getElementById(id);
 const langOf = (): string => langLabel(S.sess?.song?.lang || S.curlang);
@@ -117,27 +116,30 @@ function songsForLang(): Song[] {
   return S.songs.filter(s => (s.lang || 'pt') === S.curlang && songComplete(s) && (!cat || s.genre === cat));
 }
 
+function globeIcon(): string {
+  return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.4 3.8 5.6 3.8 9s-1.3 6.6-3.8 9c-2.5-2.4-3.8-5.6-3.8-9S9.5 5.4 12 3z"/></svg>';
+}
+// Langue à apprendre = sélecteur compact dans le header (change rarement, ne doit
+// pas encombrer la page). Fixée par la cohorte pour un élève : on n'affiche rien.
 function renderLangPick(): void {
-  const wrap = $id('langPick');
-  if (!wrap) return;
+  const slot = $id('langSlot');
+  if (!slot) return;
   if (S.profile && S.profile.role === 'learner') {
-    wrap.innerHTML = '';
-    wrap.style.display = 'none';
+    slot.innerHTML = '';
     return;
   }
-  wrap.style.display = '';
-  wrap.innerHTML = LANGS.map(
-    l =>
-      `<button class="lang-chip${l.code === S.curlang ? ' on' : ''}" data-lang="${l.code}" style="--c:${LANG_COLORS[l.code] || '#80b7ff'}">${l.label}</button>`
-  ).join('');
-  wrap.querySelectorAll<HTMLButtonElement>('.lang-chip').forEach(b => {
-    b.onclick = async () => {
-      S.curlang = b.dataset.lang || 'pt';
+  slot.innerHTML =
+    `<label class="lang-select" title="Langue à apprendre">${globeIcon()}` +
+    `<select id="langSelect" aria-label="Langue à apprendre">` +
+    LANGS.map(l => `<option value="${l.code}"${l.code === S.curlang ? ' selected' : ''}>${l.label}</option>`).join('') +
+    `</select></label>`;
+  const sel = slot.querySelector<HTMLSelectElement>('#langSelect');
+  if (sel)
+    sel.onchange = async () => {
+      S.curlang = sel.value || 'pt';
       await setLang(S.uid, S.curlang);
-      renderLangPick();
       renderChooser();
     };
-  });
 }
 
 function flameIcon(): string {
@@ -213,7 +215,15 @@ function nextActivity(): { song: Song; label: string; sub: string } | null {
 function renderChooser(): void {
   const listEl = $id('learnList');
   if (!listEl) return;
-  const dueCount = SRS.due().length;
+  const dueCards = SRS.due();
+  const dueCount = dueCards.length;
+  // Vocabulaire concret (pas de jargon « cartes ») : on parle de mots et de phrases.
+  const dueMots = dueCards.filter(c => c.type === 'mot').length;
+  const duePhrases = dueCount - dueMots;
+  const reviewParts: string[] = [];
+  if (dueMots) reviewParts.push(`${dueMots} mot${dueMots > 1 ? 's' : ''}`);
+  if (duePhrases) reviewParts.push(`${duePhrases} phrase${duePhrases > 1 ? 's' : ''}`);
+  const reviewTitle = reviewParts.join(' et ') || `${dueCount} à réviser`;
 
   const hr = new Date().getHours();
   const part = hr < 12 ? 'Bonjour' : hr < 18 ? 'Bon après-midi' : 'Bonsoir';
@@ -226,7 +236,7 @@ function renderChooser(): void {
   const home = `<div class="learn-home">
       <div class="lh-hi">
         <h3>${part}${nm}</h3>
-        <div class="lh-sub">${goalDone ? 'Objectif du jour atteint, bravo' : `Objectif du jour : ${dc}/${DAILY_GOAL}`}${dueCount ? ` · ${dueCount} à revoir` : ''}</div>
+        <div class="lh-sub">${goalDone ? 'Objectif du jour atteint, bravo' : `Objectif du jour : ${dc}/${DAILY_GOAL}`}${dueCount ? ` · ${dueCount} à réviser` : ''}</div>
         <div class="daily-bar ${goalDone ? 'done' : ''}"><i style="width:${dpct}%"></i></div>
       </div>
       <div class="lh-meta">
@@ -237,12 +247,12 @@ function renderChooser(): void {
         <div class="lh-streak ${streak ? '' : 'cold'}" title="${streak ? 'Reviens chaque jour pour garder ta série' : 'Apprends aujourd’hui pour lancer ta série'}">${flameIcon()}<b>${streak}</b><span>jour${streak > 1 ? 's' : ''} de série</span></div>
       </div>
     </div>`;
-  // Une seule action évidente (chemin linéaire). Cartes à revoir = priorité ;
+  // Une seule action évidente (chemin linéaire). Révision = priorité ;
   // sinon on reprend / commence une chanson.
   let hero = '';
   if (dueCount > 0) {
     hero = `<div class="continue-card" role="button" tabindex="0" onclick="startReview()">
-      <div class="cc-l"><div class="cc-tag">Révision</div><div class="cc-ttl">${dueCount} carte${dueCount > 1 ? 's' : ''} à revoir</div><div class="cc-sub">Tes points faibles d'abord</div></div>
+      <div class="cc-l"><div class="cc-tag">À réviser</div><div class="cc-ttl">${reviewTitle}</div><div class="cc-sub">Tes points faibles d'abord</div></div>
       <div class="cc-play">${playIcon()}</div>
     </div>`;
   } else {
@@ -254,10 +264,15 @@ function renderChooser(): void {
     </div>`;
   }
 
+  // Tri par difficulté CROISSANTE : les plus simples en haut, les plus complexes en bas.
+  // Bande (1<2<3) puis CEFR (A1<A2<B1<B2<C1<C2, ordre lexical correct) puis titre.
   const songs = songsForLang()
     .slice()
     .sort(
-      (a, b) => Math.abs(songBand(a) - S.band) - Math.abs(songBand(b) - S.band) || (a.title || '').localeCompare(b.title || '')
+      (a, b) =>
+        songBand(a) - songBand(b) ||
+        (a.cefr || '').localeCompare(b.cefr || '') ||
+        (a.title || '').localeCompare(b.title || '')
     );
   let grid: string;
   if (!songs.length) {
