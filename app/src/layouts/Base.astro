@@ -43,6 +43,7 @@ const { title = 'refrão', active, chrome = true } = Astro.props;
           </nav>
         )
       }
+      {chrome && <div id="langSlot" class="lang-slot" />}
       {chrome && <div id="authSlot" style="display:flex;gap:8px;align-items:center" />}
     </header>
 
