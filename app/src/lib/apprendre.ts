@@ -222,7 +222,7 @@ function renderChooser(): void {
   const duePhrases = dueCount - dueMots;
   const reviewParts: string[] = [];
   if (dueMots) reviewParts.push(`${dueMots} mot${dueMots > 1 ? 's' : ''}`);
-  if (duePhrases) reviewParts.push(`${duePhrases} phrase${duePhrases > 1 ? 's' : ''}`);
+  if (duePhrases) reviewParts.push(`${duePhrases} vers`); // « vers » invariable au pluriel
   const reviewTitle = reviewParts.join(' et ') || `${dueCount} à réviser`;
 
   const hr = new Date().getHours();
@@ -233,6 +233,10 @@ function renderChooser(): void {
   const dc = getDailyCount();
   const dpct = Math.min(100, Math.round((dc / DAILY_GOAL) * 100));
   const goalDone = dc >= DAILY_GOAL;
+  // Bandeau d'accueil : UN seul focus = l'objectif du jour (gros, clair). Le
+  // niveau et la série restent présents (XP omniprésent + ancre de rétention)
+  // mais en petites pastilles DISCRÈTES, pour ne pas empiler trois infos qui
+  // se disputent l'attention (persona : une chose à la fois).
   const home = `<div class="learn-home">
       <div class="lh-hi">
         <h3>${part}${nm}</h3>
@@ -240,11 +244,11 @@ function renderChooser(): void {
         <div class="daily-bar ${goalDone ? 'done' : ''}"><i style="width:${dpct}%"></i></div>
       </div>
       <div class="lh-meta">
-        <div class="lh-xp" title="${S.prog.xp || 0} XP au total">
-          <div class="lx-top"><span class="lx-lvl">Niv. ${li.lvl}</span><span class="lx-pts">${li.into}/${li.need} XP</span></div>
-          <div class="lx-bar"><i style="width:${li.pct}%"></i></div>
+        <div class="stat-chip" title="Niveau ${li.lvl} · ${S.prog.xp || 0} XP au total">
+          <span class="sc-lvl">Niv. ${li.lvl}</span>
+          <span class="sc-bar"><b style="width:${li.pct}%"></b></span>
         </div>
-        <div class="lh-streak ${streak ? '' : 'cold'}" title="${streak ? 'Reviens chaque jour pour garder ta série' : 'Apprends aujourd’hui pour lancer ta série'}">${flameIcon()}<b>${streak}</b><span>jour${streak > 1 ? 's' : ''} de série</span></div>
+        <div class="stat-chip ${streak ? '' : 'cold'}" title="${streak ? 'Reviens chaque jour pour garder ta série' : 'Apprends aujourd’hui pour lancer ta série'}">${flameIcon()}<b>${streak}</b></div>
       </div>
     </div>`;
   // Une seule action évidente (chemin linéaire). Révision = priorité ;
