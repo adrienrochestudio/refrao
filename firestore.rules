@@ -104,13 +104,14 @@ service cloud.firestore {
 
     function validProgressData(d) {
       return d.keys().hasOnly(['xp','songs','recent'])
-        && (!('xp' in d)     || d.xp is number)
-        && (!('songs' in d)  || d.songs is map)
+        && (!('xp' in d)     || (d.xp is number && d.xp >= 0 && d.xp <= 100000000))
+        && (!('songs' in d)  || (d.songs is map && d.songs.keys().size() <= 2000))
         && (!('recent' in d) || (d.recent is list && d.recent.size() <= 500));
     }
 
+    // Map des cartes bornée : un apprenant ne peut pas gonfler le quota (abus / coût).
     function validCardsData(d) {
-      return d.keys().hasOnly(['cards']) && d.cards is map;
+      return d.keys().hasOnly(['cards']) && d.cards is map && d.cards.keys().size() <= 5000;
     }
 
     /* ---- Utilisateurs ---- */
@@ -190,8 +191,9 @@ service cloud.firestore {
       // Écriture réservée aux gestionnaires à licence valide, schéma validé.
       // Catalogue partagé : tout gestionnaire peut éditer (pas d'isolation par chanson).
       allow create, update: if hasValidLicense() && validSongData(request.resource.data);
-      // Suppression possible même licence expirée.
-      allow delete: if isManager();
+      // Suppression réservée aux gestionnaires à LICENCE VALIDE (catalogue partagé :
+      // une licence expirée ne doit plus pouvoir altérer le catalogue commun).
+      allow delete: if hasValidLicense();
     }
 
     /* ---- Licences B2B (entitlements) ---- */
