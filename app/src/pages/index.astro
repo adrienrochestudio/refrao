@@ -27,7 +27,10 @@ import { withBase } from '../lib/paths';
         <a href={withBase('auth')} class="cta cta-ghost" id="ctaManage">Ouvrir l'espace gestion</a>
       </div>
 
-      <div class="stats stagger" id="statRow" style="margin-top:48px;max-width:560px;width:100%">
+      <!-- Compteurs PERSONNELS : masqués par défaut (un visiteur déconnecté
+           verrait sinon « 0 / 0 / 0 », impression de produit vide). Révélés
+           seulement pour un apprenant connecté, une fois ses données chargées. -->
+      <div class="stats stagger" id="statRow" style="margin-top:48px;max-width:560px;width:100%;display:none">
         <div class="stat"><div class="n" id="stSongs">0</div><div class="l">chansons</div></div>
         <div class="stat"><div class="n" id="stLearned">0</div><div class="l">chansons complétées</div></div>
         <div class="stat"><div class="n" id="stXp">0</div><div class="l">bonnes réponses</div></div>
@@ -91,9 +94,9 @@ import { withBase } from '../lib/paths';
     subs = isManager ? MANAGER_SUBS : LEARNER_SUBS;
     si = 0;
     if (sub) sub.textContent = subs[0]!;
-    if (isManager && statRow) statRow.style.display = 'none';
-
-    if (!user) return;
+    // Le bloc de stats reste masqué pour un visiteur déconnecté ou un gestionnaire
+    // (compteurs personnels d'apprenant). On le révèle plus bas, données chargées.
+    if (!user || isManager) return;
     try {
       const songs = await getSongs();
       let scope = songs.filter(songComplete);
@@ -102,8 +105,9 @@ import { withBase } from '../lib/paths';
       if (elSongs) elSongs.textContent = String(scope.length);
       if (elLearned) elLearned.textContent = String(Object.values(prog.songs ?? {}).filter(x => x.completed).length);
       if (elXp) elXp.textContent = String((prog.recent ?? []).filter(Boolean).length);
+      if (statRow) statRow.style.display = ''; // révèle (revient au display du CSS)
     } catch {
-      // En local, App Check / règles peuvent bloquer la lecture : compteurs à 0.
+      // En local, App Check / règles peuvent bloquer la lecture : on laisse masqué.
     }
   });
 </script>

@@ -1,8 +1,7 @@
 {
   "name": "refrao",
   "version": "1.0.0",
-  "description": "Plateforme d'apprentissage par la musique, fondée sur une note pédagogique : input compréhensible d'abord, le refrain comme unité de mémoire, rappel actif espacé, cible de réussite 80–90 %. Multi-comptes (apprenants + gestionnaires de cohorte). Site statique (GitHub Pages) + Firebase (Auth + Firestore).",
-  "main": "core.js",
+  "description": "Plateforme d'apprentissage des langues par la musique : input compréhensible d'abord, le refrain comme unité de mémoire, rappel actif espacé, cible de réussite 80-90 %. Apprenants + gestionnaires de cohorte. App Astro + TypeScript (statique, GitHub Pages) + Firebase (Auth + Firestore). Ce paquet racine ne sert qu'aux outils de dev (tools/) ; l'app web est dans app/.",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint .",
