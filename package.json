@@ -4,6 +4,7 @@
   "description": "Plateforme d'apprentissage des langues par la musique : input compréhensible d'abord, le refrain comme unité de mémoire, rappel actif espacé, cible de réussite 80-90 %. Apprenants + gestionnaires de cohorte. App Astro + TypeScript (statique, GitHub Pages) + Firebase (Auth + Firestore). Ce paquet racine ne sert qu'aux outils de dev (tools/) ; l'app web est dans app/.",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "test:rules": "firebase emulators:exec --only firestore --project refrao-rules-test \"node --test tools/rules.test.mjs\"",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

@@ -2,14 +2,15 @@
 
 > Document de reprise. À lire en début de chat pour reprendre le travail.
 > Règles permanentes : `CLAUDE.md` (lu automatiquement). Méthode de travail : `GUIDE.md`.
-> Dernière mise à jour : 2026-06-14.
+> Dernière mise à jour : 2026-06-17.
 
 ---
 
 ## 0. Où on en est (TL;DR)
 Le produit est **en ligne et fonctionnel** (build Astro + TypeScript sur GitHub Pages, Firebase Spark gratuit). Le backend B2B sécurisé et la migration framework sont **faits**. Le gros du travail récent : une **fabrique de chansons** (import enrichi karaoké + traduction au mot, par Claude Code, sans coût), et une **refonte du parcours apprenant** (gamification addictive style Duolingo : XP/niveaux/badges/streaks/objectif du jour/combos, exercices d'écoute, blocage multi-jours par répétition espacée). Catalogue : 6 chansons portugaises en place.
 Une **passe design** (d'après l'audit des meilleurs sites : Apple/Brilliant/Duolingo/Spotify/Stripe) a posé un système : tokens d'espacement 8px + échelle typo, sémantique chromatique resserrée à 1 accent (bleu=action, vert=correct, rouge=faux, OR=récompense), accessibilité (reduced-motion, focus visible, contraste AA), composants (bouton physique, cibles 44px, cartes teintées par la pochette), lecteur audio persistant (mini-barre hors exercice), accessibilité clavier. Les 4 lots + l'a11y clavier sont **en ligne**. À contrôler en prod par Adrien : le comportement audio connecté du lecteur persistant (non testable en local, App Check).
-**Prochaines étapes (dans d'autres chats)** : contrôler le lecteur persistant en prod (lecture/pause, switch de morceau, pause à l'entrée d'un exercice) ; encore des passes de review du processus d'AJOUT (gestion/import) et d'APPRENTISSAGE, puis une passe OPTIMISATION / SÉCURITÉ / FIABILITÉ / DÉPLOIEMENT / SCALING.
+**Travaux du 2026-06-17 (en ligne)** : audit général (#46), puis **passe design premium** (#46 : boutons matière + reflets au lieu de l'aplat « jouet », transitions de vues/leçons adoucies, célébrations enrichies = badge sunburst + pop de bonne réponse, profondeur des cartes, topbar givrée) ; **simplification de l'accueil apprenant** (#47, #48 : sélecteur de langue déplacé dans le header car il change rarement ; chansons triées par difficulté CROISSANTE ; vocabulaire concret « X mots et Y vers » au lieu de « cartes » ; bandeau allégé = l'objectif du jour est le seul focus, niveau/série en petites pastilles discrètes) ; **passe sécurité/fiabilité** (durcissement des règles Firestore + déploiement, garde-fou type-check au déploiement prod, suite de tests des règles prête).
+**Prochaines étapes (dans d'autres chats)** : contrôler le lecteur persistant en prod (lecture/pause, switch de morceau, pause à l'entrée d'un exercice) et vérifier en prod que les écritures de l'utilisateur passent toujours après le durcissement des règles ; encore des passes de review du processus d'AJOUT (gestion/import) et d'APPRENTISSAGE, puis OPTIMISATION / SCALING.
 
 ---
 
@@ -59,6 +60,7 @@ Une **passe design** (d'après l'audit des meilleurs sites : Apple/Brilliant/Duo
 | `tools/import-song.mjs` | **Fabrique de chansons** (import enrichi, §8) |
 | `tools/set-manager.mjs` | Provisioning gestionnaire + licence (Admin SDK) |
 | `tools/deploy-rules.mjs` | Publication de `firestore.rules` |
+| `tools/rules.test.mjs` | Tests des règles Firestore (`npm run test:rules`, émulateur requis) |
 | `firestore.rules` | Règles Firestore durcies (source de vérité, déjà publiées) |
 
 > Dette transitoire assumée : les fonctions appelées par des `onclick` inline sont exposées sur `window`. À nettoyer au redesign.
@@ -126,13 +128,19 @@ Le gestionnaire doit se reconnecter pour activer ses claims.
 - Fabrique de chansons (import enrichi karaoké + sens au mot) ; 6 chansons en ligne ; taxonomie de styles + filtre par style.
 - Refonte du parcours apprenant : gamification complète (XP/niveaux/badges/streaks/objectif du jour/dopamine/combos), exercices d'écoute, découverte pas à pas, accueil linéaire, blocage multi-jours, accueil 2 boutons, vouvoiement Gestion, tirets retirés.
 - **Passe design (audit) · 4 lots + a11y clavier en ligne** : (1) fondations = tokens d'espacement 8px + échelle typo (`--space-*`, `--text-*`, `--tracking-tight`, `--leading-body`) ; (2) couleur 1 accent (bleu=action, vert=correct, rouge=faux, **or `--reward`**=récompense ; violet réservé aux repères de NIVEAU) + accessibilité (`prefers-reduced-motion`, `:focus-visible`, `--text-mute` remonté pour passer AA) ; (3) composants = bouton primaire « physique » pressable, cibles ≥ 44px, carte chanson teintée par la couleur dominante de la pochette (extraction canvas runtime + repli déterministe, 0 champ Firestore) ; (4) lecteur audio persistant = mini-barre fixe (`#miniPlayer`) qui joue le morceau entier sur accueil/parcours, en pause + masquée pendant les exercices (focus total), player YouTube dédié `miniAudio` branché sur `showView()` ; (5) a11y clavier = `.song-card`/`.continue-card`/`.pstep` rendues focusables (`tabindex`/`role`) + activation Entrée/Espace (`enableKeyboardActivation`). Surtout dans `app/public/style.css` (+ helpers dans `apprendre.ts`).
+- **Passe design PREMIUM (2026-06-17, en ligne)** : retrait du côté « cheap ». Boutons (`.cta`, `.btn-primary`, `.cc-play`) = dégradé 3 arrêts + reflets internes (haut clair, ombre interne basse) + ombres en couches + balayage lumineux au survol (fini l'aplat à bord plat façon jouet). Transitions de vues/leçons adoucies (`viewIn`/`exIn` : scale + flou). Célébrations enrichies (badge de fin glossy + sunburst rotatif + lévitation ; pop de bonne réponse `.choice.good`). Profondeur des cartes au survol (ombres portées). Topbar givrée + voile dégradé. **Tout en CSS, `prefers-reduced-motion` déjà couvert.**
+- **Accueil apprenant simplifié (2026-06-17, en ligne)** : sélecteur de langue déplacé du contenu vers le **header** (`#langSlot` dans `Base.astro`, pastille compacte globe + liste ; masqué pour un élève dont la langue est fixée par la cohorte) ; **tri des chansons par difficulté croissante** (bande puis CEFR puis titre) ; bandeau de révision en **vocabulaire concret** (« X mots et Y vers », plus de « cartes ») ; **bandeau d'accueil allégé** = l'objectif du jour est le seul focus, niveau + série passent en petites pastilles discrètes (`.stat-chip`). Persona : une chose à la fois.
+- **Passe sécurité / fiabilité (2026-06-17, en ligne)** : règles Firestore **durcies + publiées** (maps `progress.songs` ≤ 2000 et `cards.cards` ≤ 5000 bornées contre l'abus de quota ; `xp` borné ≥ 0 ; **suppression de chanson désormais réservée à une LICENCE VALIDE**, plus seulement `isManager`). **Garde-fou CI** : `npm run check` ajouté à `deploy.yml` (plus aucun déploiement prod si le type-check casse). **Suite de tests des règles** prête (`tools/rules.test.mjs`, script `npm run test:rules`) : encode les invariants (pas d'auto-élévation, isolation, licence expirée, liste blanche, pas d'énumération des cohortes). Non lancée ici (l'émulateur Firestore exige Java, absent ; `npm i -D @firebase/rules-unit-testing firebase-tools` puis `npm run test:rules`).
 
 ## 14. Ce qui RESTE (par priorité)
 - **Contrôle prod du lecteur persistant (Lot 4, déjà en ligne)** : non testable en local (App Check). Adrien vérifie lecture/pause, switch de morceau à l'ouverture d'une autre chanson, pause + disparition de la barre à l'entrée d'un exercice, réapparition au retour. Si KO : revert de la PR du lecteur (les autres lots ne sont pas touchés).
 - **Passes de review (prochaines, autres chats)** : continuer à simplifier/linéariser le **processus d'apprentissage** (moins de texte, plus direct, s'inspirer des meilleures apps) et revoir le **processus d'AJOUT** (gestion/import : le rendre fluide). Garder la boussole §3. Le système de design (tokens §13) est désormais la base : piocher dans `--space-*`/`--text-*`, tenir 1 sens = 1 couleur.
-- **Puis passe OPTIMISATION / SÉCURITÉ / FIABILITÉ / DÉPLOIEMENT / ANTICIPATION SCALING** (autre chat) avant d'élargir.
+- **Vérifs prod du durcissement des règles (2026-06-17)** : confirmer en live que les écritures de l'utilisateur passent toujours (révision, progression, ajout/suppression de chanson par le gestionnaire à licence valide). Risque jugé faible (bornes très au-dessus de l'usage réel, licence valide jusqu'au 2027), mais non testable en local. Si KO : revert `firestore.rules` + `node tools/deploy-rules.mjs`.
+- **Faire tourner la suite de tests des règles** quand un environnement avec Java/émulateur est dispo (`npm run test:rules`). C'est LE chantier fiabilité de fond (les règles = cœur de la sécu).
+- **Isolation par chanson (SCALING multi-client, structurel)** : le catalogue est PARTAGÉ ; tout gestionnaire à licence valide peut éditer n'importe quelle chanson. À régler avant le multi-client réel (ajouter un `ownerUid` sur `songs` + migration + règles par propriétaire). Hors Phase 1.
+- **Puis passe OPTIMISATION / ANTICIPATION SCALING** (autre chat) avant d'élargir.
 - **Bloquants de COMMERCIALISATION (Phase 3, hors code)** : RGPD (données d'élèves possiblement mineurs), droits sur les paroles (œuvres protégées). Puis Stripe (exige un backend payant), domaine perso, self-service manager (clé API ou Cloud Function).
-- **Divers** : tirets cadratins encore présents dans certains labels Gestion à finir de nettoyer ; calibrer le test de niveau (`leveltest`, stub) ; `README.md` décrit encore le vanilla.
+- **Divers** : tirets cadratins encore présents dans certains labels Gestion à finir de nettoyer ; calibrer le test de niveau (`leveltest`, stub).
 
 ## 15. Comment reprendre dans un nouveau chat
 1. Le chat démarre dans `~/refrao` : `CLAUDE.md` lu automatiquement (règles permanentes).
@@ -154,4 +162,8 @@ node tools/import-song.mjs --commit [--dry]
 # provisioning / règles (depuis la racine, serviceAccount.json requis)
 node tools/set-manager.mjs --email <e> --until 2027-09-01 --school "<nom>"
 node tools/deploy-rules.mjs [--check]
+
+# tests des règles (racine ; nécessite Java + l'émulateur, donc une install ponctuelle)
+npm i -D @firebase/rules-unit-testing firebase-tools
+npm run test:rules
 ```
